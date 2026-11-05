@@ -1,0 +1,35 @@
+# Bundler
+/.bundle
+
+# Logs and temporary files
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+
+# Active Storage files
+/storage/*
+!/storage/.keep
+
+# Rails credentials
+/config/master.key
+/config/credentials/*.key
+
+# Compiled assets
+/public/assets
+
+# Node.js
+/node_modules
+/npm-debug.log*
+/yarn-error.log
+
+# Environment variables
+.env*
+!.env.example
+
+# Test coverage
+/coverage
+
+# OS files
+.DS_Store
+Thumbs.db
