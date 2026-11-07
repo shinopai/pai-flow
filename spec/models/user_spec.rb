@@ -12,5 +12,11 @@ RSpec.describe User, type: :model do
 
       expect(user).to be_valid
     end
+
+    it 'FactoryBotで有効なユーザーを生成できること' do
+      user = build(:user)
+
+      expect(user).to be_valid
+    end
   end
 end

@@ -70,3 +70,5 @@ gem "dartsass-rails", "~> 0.5.1"
 gem "devise", "~> 5.0"
 
 gem "rspec-rails", "~> 8.1", groups: [:development, :test]
+
+gem "factory_bot_rails", "~> 6.5", groups: [:development, :test]
