@@ -1,19 +1,19 @@
-require 'rails_helper'
+require "rails_helper"
 
 RSpec.describe User, type: :model do
-  describe 'validations' do
-    it '有効な属性であれば有効であること' do
+  describe "validations" do
+    it "有効な属性であれば有効であること" do
       user = User.new(
-        name: 'テストユーザー',
-        email: 'test@example.com',
-        password: 'password123',
-        password_confirmation: 'password123'
+        name: "テストユーザー",
+        email: "test@example.com",
+        password: "password123",
+        password_confirmation: "password123"
       )
 
       expect(user).to be_valid
     end
 
-    it 'FactoryBotで有効なユーザーを生成できること' do
+    it "FactoryBotで有効なユーザーを生成できること" do
       user = build(:user)
 
       expect(user).to be_valid
