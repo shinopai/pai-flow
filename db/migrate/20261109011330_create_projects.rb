@@ -1,9 +1,10 @@
 class CreateProjects < ActiveRecord::Migration[8.1]
+  # rubocop: disable-next Metrics/AbcSize
   def change
     create_table :projects do |t|
       t.references :team, null: false,
-                           foreign_key: { on_delete: :restrict },
-                           index: false
+                          foreign_key: { on_delete: :restrict },
+                          index: false
 
       t.references :created_by, null: false,
                                 foreign_key: { to_table: :users, on_delete: :restrict },
@@ -24,11 +25,11 @@ class CreateProjects < ActiveRecord::Migration[8.1]
       t.index :team_id
       t.index :assignee_membership_id
 
-      t.index [:team_id, :updated_at]
-      t.index [:team_id, :due_date]
-      t.index [:team_id, :name]
-      t.index [:team_id, :status]
-      t.index [:team_id, :assignee_membership_id]
+      t.index %i[team_id updated_at]
+      t.index %i[team_id due_date]
+      t.index %i[team_id name]
+      t.index %i[team_id status]
+      t.index %i[team_id assignee_membership_id]
     end
   end
 end

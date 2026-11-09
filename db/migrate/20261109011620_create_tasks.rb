@@ -1,4 +1,5 @@
 class CreateTasks < ActiveRecord::Migration[8.1]
+  # rubocop: disable-next Metrics/AbcSize, Metrics/BlockLength
   def change
     create_table :tasks do |t|
       t.references :project, null: false,
@@ -31,13 +32,13 @@ class CreateTasks < ActiveRecord::Migration[8.1]
       t.index :assignee_membership_id
       t.index :due_date
 
-      t.index [:project_id, :status]
-      t.index [:project_id, :priority]
-      t.index [:project_id, :due_date]
-      t.index [:project_id, :position]
-      t.index [:parent_task_id, :position]
-      t.index [:assignee_membership_id, :due_date]
-      t.index [:project_id, :created_at]
+      t.index %i[project_id status]
+      t.index %i[project_id priority]
+      t.index %i[project_id due_date]
+      t.index %i[project_id position]
+      t.index %i[parent_task_id position]
+      t.index %i[assignee_membership_id due_date]
+      t.index %i[project_id created_at]
     end
   end
 end

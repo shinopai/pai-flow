@@ -2,16 +2,16 @@ class CreateInvitations < ActiveRecord::Migration[8.1]
   def change
     create_table :invitations do |t|
       t.references :team, null: false,
-                           foreign_key: { on_delete: :restrict },
-                           index: false
+                          foreign_key: { on_delete: :restrict },
+                          index: false
 
       t.references :invitee, null: false,
-                              foreign_key: { to_table: :users, on_delete: :restrict },
-                              index: false
+                             foreign_key: { to_table: :users, on_delete: :restrict },
+                             index: false
 
       t.references :invited_by, null: false,
-                                 foreign_key: { to_table: :users, on_delete: :restrict },
-                                 index: false
+                                foreign_key: { to_table: :users, on_delete: :restrict },
+                                index: false
 
       t.string :email, null: false
       t.string :status, null: false
@@ -24,7 +24,7 @@ class CreateInvitations < ActiveRecord::Migration[8.1]
         name: "check_invitations_status"
       )
 
-      t.index [:team_id, :invitee_id],
+      t.index %i[team_id invitee_id],
               unique: true,
               where: "status = 'pending'"
 

@@ -1,5 +1,3 @@
 FactoryBot.define do
-  factory :invitation do
-
-  end
+  factory :invitation
 end

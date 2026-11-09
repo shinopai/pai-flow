@@ -1,5 +1,3 @@
 FactoryBot.define do
-  factory :project do
-
-  end
+  factory :project
 end

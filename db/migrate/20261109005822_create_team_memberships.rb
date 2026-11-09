@@ -23,7 +23,7 @@ class CreateTeamMemberships < ActiveRecord::Migration[8.1]
         name: "check_team_memberships_status_left_at"
       )
 
-      t.index [:team_id, :user_id],
+      t.index %i[team_id user_id],
               unique: true,
               where: "status = 'active'"
 

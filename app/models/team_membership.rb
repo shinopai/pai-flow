@@ -15,4 +15,10 @@ class TeamMembership < ApplicationRecord
            dependent: :restrict_with_exception
 
   has_many :comments, dependent: :restrict_with_exception
+
+  validates :role, presence: true, inclusion: { in: %w[owner member guest] }
+  validates :status, presence: true, inclusion: { in: %w[active left] }
+  validates :joined_at, presence: true
+  validates :left_at, presence: true, if: -> { status == "left" }
+  validates :left_at, absence: true, if: -> { status == "active" }
 end
