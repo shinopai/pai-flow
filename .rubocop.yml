@@ -23,6 +23,11 @@ Metrics/MethodLength:
   Exclude:
     - 'db/migrate/**/*'
 
+Metrics/BlockLength:
+  AllowedMethods:
+    - describe
+    - context
+
 Layout/LineLength:
   AllowedPatterns:
     - '\A\s*#'
