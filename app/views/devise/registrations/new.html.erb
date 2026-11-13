@@ -1,0 +1,38 @@
+<div class="auth">
+  <h2 class="auth__title">Sign up</h2>
+
+  <%= form_for(resource, as: resource_name, url: registration_path(resource_name), html: { class: "auth__form" }) do |f| %>
+    <%= render "devise/shared/error_messages", resource: resource %>
+
+    <div class="auth__field">
+      <p><%= f.label :name, class: "auth__label" %></p>
+      <p><%= f.text_field :name, autofocus: true, autocomplete: "name", class: "auth__input" %></p>
+    </div>
+
+    <div class="auth__field">
+      <p><%= f.label :email, class: "auth__label" %></p>
+      <p><%= f.email_field :email, autocomplete: "email", class: "auth__input" %></p>
+    </div>
+
+    <div class="auth__field">
+      <p>
+        <%= f.label :password, class: "auth__label" %>
+        <% if @minimum_password_length %>
+          <em class="auth__hint">(<%= @minimum_password_length %> characters minimum)</em>
+        <% end %>
+      </p>
+      <p><%= f.password_field :password, autocomplete: "new-password", class: "auth__input" %></p>
+    </div>
+
+    <div class="auth__field">
+      <p><%= f.label :password_confirmation, class: "auth__label" %></p>
+      <p><%= f.password_field :password_confirmation, autocomplete: "new-password", class: "auth__input" %></p>
+    </div>
+
+    <div class="auth__actions">
+      <%= f.submit "Sign up", class: "auth__submit" %>
+    </div>
+  <% end %>
+
+  <%= render "devise/shared/links" %>
+</div>
