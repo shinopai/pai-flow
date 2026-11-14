@@ -1,5 +1,9 @@
 Rails.application.routes.draw do
-  devise_for :users, skip: [:registrations]
+  devise_for :users,
+    skip: [:registrations],
+    controllers: {
+      confirmations: "users/confirmations"
+    }
 
   devise_scope :user do
     get "/users/sign_up",
@@ -18,11 +22,9 @@ Rails.application.routes.draw do
           to: "devise/registrations#update"
   end
 
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
-
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Render dynamic PWA files from app/views/pwa/*
+  # Render dynamic PWA files from app/views/pwa/
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 

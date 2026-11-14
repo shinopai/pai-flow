@@ -33,6 +33,14 @@ class User < ApplicationRecord
   validates :name, presence: true, length: { maximum: 50 }
   validates :password_confirmation, presence: true, on: :create
 
+  def send_devise_notification(notification, *args)
+    result = super
+
+    update!(confirmation_instructions_sent_at: Time.current) if notification == :confirmation_instructions && persisted?
+
+    result
+  end
+
   private
 
   def normalize_email

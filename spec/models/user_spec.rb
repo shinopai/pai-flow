@@ -63,4 +63,22 @@ RSpec.describe User, type: :model do
       expect(user.errors[:password_confirmation]).to be_present
     end
   end
+
+  describe "confirmation instructions" do
+    it "ユーザー登録時に確認メールの送信日時が保存されること" do
+      user = create(:user, confirmed_at: nil)
+
+      expect(user.confirmation_instructions_sent_at).to be_present
+    end
+
+    it "確認メールの再送時に送信日時が更新されること" do
+      user = create(:user, confirmed_at: nil)
+      user.update!(confirmation_instructions_sent_at: 1.hour.ago)
+
+      user.resend_confirmation_instructions
+
+      expect(user.reload.confirmation_instructions_sent_at)
+        .to be_within(1.second).of(Time.current)
+    end
+  end
 end
