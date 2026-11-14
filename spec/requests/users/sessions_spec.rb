@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "Users::Sessions", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   describe "POST /users/sign_in" do
     context "認証済みユーザーの場合" do
       let(:user) do
@@ -38,6 +40,89 @@ RSpec.describe "Users::Sessions", type: :request do
 
         expect(response).to have_http_status(422)
         expect(flash[:alert]).to be_present
+      end
+
+      it "ログイン失敗が4回の場合、アカウントがロックされないこと" do
+        4.times do
+          post user_session_path,
+               params: {
+                 user: {
+                   email: user.email,
+                   password: "wrong_password"
+                 }
+               }
+        end
+
+        expect(user.reload.failed_attempts).to eq(4)
+        expect(user.access_locked?).to be(false)
+      end
+
+      it "ログイン失敗が5回目に達すると、アカウントがロックされること" do
+        5.times do
+          post user_session_path,
+               params: {
+                 user: {
+                   email: user.email,
+                   password: "wrong_password"
+                 }
+               }
+        end
+
+        user.reload
+
+        expect(user.failed_attempts).to eq(5)
+        expect(user.access_locked?).to be(true)
+        expect(user.locked_at).to be_present
+      end
+
+      it "アカウントロック中は正しいパスワードでもログインできないこと" do
+        5.times do
+          post user_session_path,
+               params: {
+                 user: {
+                   email: user.email,
+                   password: "wrong_password"
+                 }
+               }
+        end
+
+        post user_session_path,
+             params: {
+               user: {
+                 email: user.email,
+                 password: "password123"
+               }
+             }
+
+        expect(response).to have_http_status(422)
+        expect(flash[:alert]).to be_present
+        expect(user.reload.access_locked?).to be(true)
+      end
+
+      it "ロックから30分経過すると自動解除され、ログインできること" do
+        5.times do
+          post user_session_path,
+               params: {
+                 user: {
+                   email: user.email,
+                   password: "wrong_password"
+                 }
+               }
+        end
+
+        travel_to(30.minutes.from_now + 1.second) do
+          post user_session_path,
+               params: {
+                 user: {
+                   email: user.email,
+                   password: "password123"
+                 }
+               }
+
+          expect(response).to redirect_to("/")
+          expect(user.reload.access_locked?).to be(false)
+          expect(user.failed_attempts).to eq(0)
+        end
       end
     end
 
