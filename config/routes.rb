@@ -1,9 +1,9 @@
 Rails.application.routes.draw do
   devise_for :users,
-    skip: [:registrations],
-    controllers: {
-      confirmations: "users/confirmations"
-    }
+             skip: [:registrations],
+             controllers: {
+               confirmations: "users/confirmations"
+             }
 
   devise_scope :user do
     get "/users/sign_up",
