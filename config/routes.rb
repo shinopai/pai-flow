@@ -15,11 +15,11 @@ Rails.application.routes.draw do
          as: :user_registration
 
     get "/users/edit",
-        to: "devise/registrations#edit",
+        to: "users/registrations#edit",
         as: :edit_user_registration
 
     patch "/users",
-          to: "devise/registrations#update"
+          to: "users/registrations#update"
   end
 
   get "up" => "rails/health#show", as: :rails_health_check

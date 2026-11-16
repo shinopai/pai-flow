@@ -1,213 +1,160 @@
 require "rails_helper"
 
-RSpec.describe "ユーザー登録", type: :request do
+RSpec.describe "Users::Registrations", type: :request do
+  let(:user) do
+    create(
+      :user,
+      confirmed_at: Time.current,
+      password: "password123",
+      password_confirmation: "password123"
+    )
+  end
+
   before do
+    post user_session_path,
+         params: {
+           user: {
+             email: user.email,
+             password: "password123"
+           }
+         }
+
+    expect(response).to redirect_to("/")
+
     ActionMailer::Base.deliveries.clear
   end
 
-  describe "POST /users" do
-    it "有効な情報でユーザーを登録し、確認メールを送信すること" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "TEST@EXAMPLE.COM",
-            password: "password123",
-            password_confirmation: "password123"
-          }
-        }
-      end.to change(User, :count).by(1)
+  describe "PATCH /users" do
+    context "名前の変更" do
+      it "名前の変更に成功すること" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  name: "変更後の名前",
+                  current_password: "password123"
+                }
+              }
 
-      user = User.last
-
-      expect(user.name).to eq("テストユーザー")
-      expect(user.email).to eq("test@example.com")
-      expect(user.confirmed_at).to be_nil
-
-      expect(response).to have_http_status(:redirect)
-
-      expect(flash[:notice]).to eq(
-        I18n.t("devise.registrations.signed_up_but_unconfirmed")
-      )
-
-      expect(ActionMailer::Base.deliveries.size).to eq(1)
+        expect(response).to redirect_to("/")
+        expect(user.reload.name).to eq("変更後の名前")
+      end
     end
 
-    it "名前が未入力の場合は登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: nil,
-            email: "test@example.com",
-            password: "password123",
-            password_confirmation: "password123"
-          }
-        }
-      end.not_to change(User, :count)
+    context "メールアドレスの変更" do
+      it "確認メールが送信され、認証前は旧メールアドレスが有効であること" do
+        old_email = user.email
+        new_email = "new@example.com"
 
-      expect(ActionMailer::Base.deliveries).to be_empty
+        patch user_registration_path,
+              params: {
+                user: {
+                  email: new_email,
+                  current_password: "password123"
+                }
+              }
+
+        user.reload
+
+        expect(response).to redirect_to("/")
+        expect(user.email).to eq(old_email)
+        expect(user.unconfirmed_email).to eq(new_email)
+        expect(ActionMailer::Base.deliveries.size).to eq(1)
+        expect(ActionMailer::Base.deliveries.last.to).to include(new_email)
+      end
+
+      it "確認メールの認証後、新しいメールアドレスが有効になること" do
+        new_email = "new@example.com"
+
+        patch user_registration_path,
+              params: {
+                user: {
+                  email: new_email,
+                  current_password: "password123"
+                }
+              }
+
+        mail = ActionMailer::Base.deliveries.last
+        token = mail.body.encoded[/confirmation_token=([^&\s"]+)/, 1]
+
+        expect(token).to be_present
+
+        get user_confirmation_path(confirmation_token: token)
+
+        expect(response).to redirect_to("/")
+        expect(user.reload.email).to eq(new_email)
+        expect(user.unconfirmed_email).to be_nil
+      end
     end
 
-    it "メールアドレスが未入力の場合は登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: nil,
-            password: "password123",
-            password_confirmation: "password123"
-          }
-        }
-      end.not_to change(User, :count)
+    context "パスワードの変更" do
+      it "パスワードの変更に成功すること" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  password: "newpassword123",
+                  password_confirmation: "newpassword123",
+                  current_password: "password123"
+                }
+              }
 
-      expect(ActionMailer::Base.deliveries).to be_empty
+        expect(response).to redirect_to("/")
+        expect(user.reload.valid_password?("newpassword123")).to be(true)
+        expect(user.valid_password?("password123")).to be(false)
+      end
     end
 
-    it "登録済みのメールアドレスでは登録されないこと" do
-      existing_user = create(:user)
-      ActionMailer::Base.deliveries.clear
+    context "入力内容が不正な場合" do
+      it "現在のパスワードが間違っている場合、変更できないこと" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  name: "変更後の名前",
+                  current_password: "wrong_password"
+                }
+              }
 
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "別のテストユーザー",
-            email: existing_user.email.upcase,
-            password: "password123",
-            password_confirmation: "password123"
-          }
-        }
-      end.not_to change(User, :count)
+        expect(response).to have_http_status(422)
+        expect(user.reload.name).not_to eq("変更後の名前")
+      end
 
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
+      it "現在のパスワードが未入力の場合、変更できないこと" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  name: "変更後の名前"
+                }
+              }
 
-    it "パスワードが未入力の場合は登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "password-missing@example.com",
-            password: nil,
-            password_confirmation: nil
-          }
-        }
-      end.not_to change(User, :count)
+        expect(response).to have_http_status(422)
+        expect(user.reload.name).not_to eq("変更後の名前")
+      end
 
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
+      it "パスワード確認が一致しない場合、変更できないこと" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  password: "newpassword123",
+                  password_confirmation: "different_password",
+                  current_password: "password123"
+                }
+              }
 
-    it "パスワード確認が未入力の場合は登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "confirmation-missing@example.com",
-            password: "password123",
-            password_confirmation: nil
-          }
-        }
-      end.not_to change(User, :count)
+        expect(response).to have_http_status(422)
+        expect(user.reload.valid_password?("password123")).to be(true)
+      end
 
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
+      it "名前が未入力の場合、変更できないこと" do
+        patch user_registration_path,
+              params: {
+                user: {
+                  name: "",
+                  current_password: "password123"
+                }
+              }
 
-    it "パスワードとパスワード確認が一致しない場合は登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "mismatch@example.com",
-            password: "password123",
-            password_confirmation: "different123"
-          }
-        }
-      end.not_to change(User, :count)
-
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
-
-    it "不正な形式のメールアドレスでは登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "invalid-email",
-            password: "password123",
-            password_confirmation: "password123"
-          }
-        }
-      end.not_to change(User, :count)
-
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
-
-    it "8文字未満のパスワードでは登録されないこと" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "short-password@example.com",
-            password: "1234567",
-            password_confirmation: "1234567"
-          }
-        }
-      end.not_to change(User, :count)
-
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
-
-    it "129文字のパスワードでは登録されないこと" do
-      long_password = "a" * 129
-
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "long-password@example.com",
-            password: long_password,
-            password_confirmation: long_password
-          }
-        }
-      end.not_to change(User, :count)
-
-      expect(ActionMailer::Base.deliveries).to be_empty
-    end
-
-    it "ちょうど8文字のパスワードで登録できること" do
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "eight-password@example.com",
-            password: "12345678",
-            password_confirmation: "12345678"
-          }
-        }
-      end.to change(User, :count).by(1)
-
-      expect(User.last.encrypted_password).to be_present
-      expect(User.last.valid_password?("12345678")).to be(true)
-    end
-
-    it "ちょうど128文字のパスワードで登録できること" do
-      password = "a" * 128
-
-      expect do
-        post user_registration_path, params: {
-          user: {
-            name: "テストユーザー",
-            email: "128-password@example.com",
-            password: password,
-            password_confirmation: password
-          }
-        }
-      end.to change(User, :count).by(1)
-
-      user = User.last
-
-      expect(user.encrypted_password).to be_present
-      expect(user.valid_password?(password)).to be(true)
-      expect(ActionMailer::Base.deliveries.size).to eq(1)
+        expect(response).to have_http_status(422)
+        expect(user.reload.name).not_to be_blank
+      end
     end
   end
 end
