@@ -73,3 +73,5 @@ gem "rspec-rails", "~> 8.1", groups: %i[development test]
 gem "factory_bot_rails", "~> 6.5", groups: %i[development test]
 
 gem "rubocop-rails", "~> 2.38", group: :development
+
+gem "pundit", "~> 2.5.2"

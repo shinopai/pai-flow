@@ -1,5 +1,9 @@
 class ApplicationController < ActionController::Base
+  include Pundit::Authorization
+
   before_action :configure_permitted_parameters, if: :devise_controller?
+
+  rescue_from Pundit::NotAuthorizedError, with: :user_not_authorized
 
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -15,5 +19,9 @@ class ApplicationController < ActionController::Base
 
   def after_sign_out_path_for(_resource_or_scope)
     new_user_session_path
+  end
+
+  def user_not_authorized
+    head :forbidden
   end
 end
