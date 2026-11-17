@@ -67,4 +67,76 @@ RSpec.describe Project, type: :model do
       expect(Comment.exists?(subtask_comment.id)).to be false
     end
   end
+
+  describe "validations" do
+    it "FactoryBotで有効なProjectを生成できること" do
+      project = build(:project)
+
+      expect(project).to be_valid
+    end
+
+    it "nameが空の場合は無効であること" do
+      project = build(:project, name: nil)
+
+      expect(project).not_to be_valid
+      expect(project.errors[:name]).to be_present
+    end
+
+    it "nameが100文字を超える場合は無効であること" do
+      project = build(:project, name: "あ" * 101)
+
+      expect(project).not_to be_valid
+      expect(project.errors[:name]).to be_present
+    end
+
+    it "descriptionが500文字を超える場合は無効であること" do
+      project = build(:project, description: "あ" * 501)
+
+      expect(project).not_to be_valid
+      expect(project.errors[:description]).to be_present
+    end
+
+    it "statusが空の場合は無効であること" do
+      project = build(:project, status: nil)
+
+      expect(project).not_to be_valid
+      expect(project.errors[:status]).to be_present
+    end
+
+    it "許可されていないstatusの場合は無効であること" do
+      project = build(:project, status: "invalid")
+
+      expect(project).not_to be_valid
+      expect(project.errors[:status]).to be_present
+    end
+
+    it "due_dateに不正な日付を指定した場合は無効であること" do
+      project = build(:project, due_date: "invalid-date")
+
+      expect(project).not_to be_valid
+      expect(project.errors[:due_date]).to be_present
+    end
+  end
+
+  describe "associations" do
+    it "Teamに所属すること" do
+      team = create(:team)
+      project = create(:project, team:)
+
+      expect(project.team).to eq(team)
+    end
+
+    it "作成者のUserに所属すること" do
+      user = create(:user)
+      project = create(:project, created_by: user)
+
+      expect(project.created_by).to eq(user)
+    end
+
+    it "Assigneeが未設定でも有効であること" do
+      project = build(:project, assignee_membership: nil)
+
+      expect(project).to be_valid
+    end
+  end
 end

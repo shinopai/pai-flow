@@ -79,4 +79,102 @@ RSpec.describe Task, type: :model do
       expect(Project.exists?(project.id)).to be true
     end
   end
+
+  describe "validations" do
+    it "FactoryBotで有効なTaskを生成できること" do
+      task = build(:task)
+
+      expect(task).to be_valid
+    end
+
+    it "titleが空の場合は無効であること" do
+      task = build(:task, title: nil)
+
+      expect(task).not_to be_valid
+      expect(task.errors[:title]).to be_present
+    end
+
+    it "titleが100文字を超える場合は無効であること" do
+      task = build(:task, title: "あ" * 101)
+
+      expect(task).not_to be_valid
+      expect(task.errors[:title]).to be_present
+    end
+
+    it "descriptionが500文字を超える場合は無効であること" do
+      task = build(:task, description: "あ" * 501)
+
+      expect(task).not_to be_valid
+      expect(task.errors[:description]).to be_present
+    end
+
+    it "priorityが許可されていない値の場合は無効であること" do
+      task = build(:task, priority: "invalid")
+
+      expect(task).not_to be_valid
+      expect(task.errors[:priority]).to be_present
+    end
+
+    it "statusが許可されていない値の場合は無効であること" do
+      task = build(:task, status: "invalid")
+
+      expect(task).not_to be_valid
+      expect(task.errors[:status]).to be_present
+    end
+
+    it "positionが負数の場合は無効であること" do
+      task = build(:task, position: -1)
+
+      expect(task).not_to be_valid
+      expect(task.errors[:position]).to be_present
+    end
+
+    it "due_dateに不正な日付を指定した場合は無効であること" do
+      task = build(:task, due_date: "invalid-date")
+
+      expect(task).not_to be_valid
+      expect(task.errors[:due_date]).to be_present
+    end
+
+    it "AssigneeとParent Taskが未設定でも有効であること" do
+      task = build(:task, assignee_membership: nil, parent_task: nil)
+
+      expect(task).to be_valid
+    end
+  end
+
+  describe "associations" do
+    it "Projectに所属すること" do
+      project = create(:project)
+      task = create(:task, project:)
+
+      expect(task.project).to eq(project)
+    end
+
+    it "作成者のUserに所属すること" do
+      user = create(:user)
+      task = create(:task, created_by: user)
+
+      expect(task.created_by).to eq(user)
+    end
+
+    it "Parent Taskに所属すること" do
+      parent_task = create(:task)
+      subtask = create(:task, project: parent_task.project, parent_task:)
+
+      expect(subtask.parent_task).to eq(parent_task)
+    end
+
+    it "複数のSubtaskを持てること" do
+      task = create(:task)
+      subtasks = create_list(
+        :task,
+        2,
+        project: task.project,
+        parent_task: task
+      )
+
+      expect(task.subtasks).to match_array(subtasks)
+    end
+  end
 end
