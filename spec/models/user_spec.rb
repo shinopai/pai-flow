@@ -81,4 +81,19 @@ RSpec.describe User, type: :model do
         .to be_within(1.second).of(Time.current)
     end
   end
+
+  describe "associations" do
+    it "最後に選択したチームを関連付けられること" do
+      team = create(:team)
+      user = create(:user, last_selected_team: team)
+
+      expect(user.last_selected_team).to eq(team)
+    end
+
+    it "最後に選択したチームが未設定でも有効であること" do
+      user = build(:user, last_selected_team: nil)
+
+      expect(user).to be_valid
+    end
+  end
 end

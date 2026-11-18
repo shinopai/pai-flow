@@ -28,6 +28,10 @@ class User < ApplicationRecord
            inverse_of: :created_by,
            dependent: :restrict_with_exception
 
+  belongs_to :last_selected_team,
+             class_name: "Team",
+             optional: true
+
   before_validation :normalize_email
 
   validates :name, presence: true, length: { maximum: 50 }

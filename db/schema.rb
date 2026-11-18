@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_14_002005) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_014819) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -122,8 +122,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_002005) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "confirmation_instructions_sent_at"
+    t.bigint "last_selected_team_id"
     t.index "lower((email)::text)", name: "index_users_on_lower_email", unique: true
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
+    t.index ["last_selected_team_id"], name: "index_users_on_last_selected_team_id"
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
@@ -141,4 +143,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_002005) do
   add_foreign_key "tasks", "users", column: "created_by_id", on_delete: :restrict
   add_foreign_key "team_memberships", "teams", on_delete: :restrict
   add_foreign_key "team_memberships", "users", on_delete: :restrict
+  add_foreign_key "users", "teams", column: "last_selected_team_id"
 end
