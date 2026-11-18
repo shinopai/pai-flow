@@ -79,4 +79,13 @@ RSpec.describe TeamMembership, type: :model do
       expect(membership.user).to eq(user)
     end
   end
+
+  describe "scopes" do
+    it "active scopeで有効な所属のみ取得できること" do
+      active_membership = create(:team_membership, status: "active")
+      create(:team_membership, status: "left", left_at: Time.current)
+
+      expect(TeamMembership.active).to contain_exactly(active_membership)
+    end
+  end
 end

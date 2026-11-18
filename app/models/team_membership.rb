@@ -2,6 +2,8 @@ class TeamMembership < ApplicationRecord
   belongs_to :team
   belongs_to :user
 
+  scope :active, -> { where(status: "active") }
+
   has_many :assigned_projects,
            class_name: "Project",
            foreign_key: :assignee_membership_id,
