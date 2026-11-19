@@ -26,4 +26,28 @@ class TeamsController < ApplicationController
 
     head :ok
   end
+
+  def edit
+    @team = Team.find(params.expect(:id))
+    authorize @team, :edit?
+
+    head :ok
+  end
+
+  def update
+    @team = Team.find(params.expect(:id))
+    authorize @team, :update?
+
+    if @team.update(team_params)
+      redirect_to team_path(@team), notice: "チーム名を変更しました。"
+    else
+      head :unprocessable_content
+    end
+  end
+
+  private
+
+  def team_params
+    params.expect(team: [:name])
+  end
 end

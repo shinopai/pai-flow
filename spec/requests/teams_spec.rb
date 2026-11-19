@@ -141,4 +141,74 @@ RSpec.describe "Teams", type: :request do
       end
     end
   end
+
+  describe "PATCH /teams/:id" do
+    context "Ownerの場合" do
+      it "チーム名を変更してチーム画面へリダイレクトする" do
+        team = create(:team)
+        create(:team_membership, team: team, user: user, role: "owner")
+
+        sign_in(user)
+
+        expect do
+          patch team_path(team), params: { team: { name: "新しいチーム名" } }
+        end.to change { team.reload.name }.to("新しいチーム名")
+
+        expect(response).to redirect_to(team_path(team))
+      end
+
+      it "空のチーム名では変更できず422を返す" do
+        team = create(:team, name: "変更前のチーム名")
+        create(:team_membership, team: team, user: user, role: "owner")
+
+        sign_in(user)
+
+        expect do
+          patch team_path(team), params: { team: { name: "" } }
+        end.not_to(change { team.reload.name })
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it "101文字のチーム名では変更できず422を返す" do
+        team = create(:team, name: "変更前のチーム名")
+        create(:team_membership, team: team, user: user, role: "owner")
+
+        sign_in(user)
+
+        expect do
+          patch team_path(team), params: { team: { name: "あ" * 101 } }
+        end.not_to(change { team.reload.name })
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+
+    context "Member・Guestの場合" do
+      %w[member guest].each do |role|
+        it "#{role}はチーム名を変更できず403を返す" do
+          team = create(:team, name: "変更前のチーム名")
+          create(:team_membership, team: team, user: user, role: role)
+
+          sign_in(user)
+
+          expect do
+            patch team_path(team), params: { team: { name: "変更後のチーム名" } }
+          end.not_to(change { team.reload.name })
+
+          expect(response).to have_http_status(:forbidden)
+        end
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        team = create(:team)
+
+        patch team_path(team), params: { team: { name: "新しいチーム名" } }
+
+        expect(response).to redirect_to(new_user_session_path)
+      end
+    end
+  end
 end

@@ -13,6 +13,10 @@ class TeamPolicy < ApplicationPolicy
     active_member?
   end
 
+  def update?
+    owner?
+  end
+
   class Scope < Scope
     def resolve
       scope.where(id: active_team_ids)

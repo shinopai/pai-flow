@@ -72,13 +72,74 @@ RSpec.describe TeamPolicy do
     end
   end
 
+  describe "チーム名変更権限" do
+    let(:user) { create(:user) }
+    let(:team) { create(:team) }
+    let(:policy) { described_class.new(user, team) }
+
+    context "Ownerの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "owner"
+        )
+      end
+
+      it "チーム設定画面へのアクセスとチーム名変更を許可する" do
+        expect(policy.edit?).to be true
+        expect(policy.update?).to be true
+      end
+    end
+
+    context "Memberの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "member"
+        )
+      end
+
+      it "チーム設定画面へのアクセスとチーム名変更を拒否する" do
+        expect(policy.edit?).to be false
+        expect(policy.update?).to be false
+      end
+    end
+
+    context "Guestの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "guest"
+        )
+      end
+
+      it "チーム設定画面へのアクセスとチーム名変更を拒否する" do
+        expect(policy.edit?).to be false
+        expect(policy.update?).to be false
+      end
+    end
+
+    context "所属がない場合" do
+      it "チーム設定画面へのアクセスとチーム名変更を拒否する" do
+        expect(policy.edit?).to be false
+        expect(policy.update?).to be false
+      end
+    end
+  end
+
   describe "Scope" do
     describe "#resolve" do
       it "ユーザーの有効な所属チームだけを返す" do
         user = create(:user)
         active_team = create(:team)
         left_team = create(:team)
-        unrelated_team = create(:team)
+        create(:team)
 
         create(:team_membership, user: user, team: active_team)
         create(
