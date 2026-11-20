@@ -31,6 +31,10 @@ Rails.application.routes.draw do
               controller: "memberships",
               only: %i[index update]
 
+    patch "ownership",
+          to: "memberships#transfer_ownership",
+          as: :ownership
+
     resource :membership,
              controller: "memberships",
              only: :destroy

@@ -31,6 +31,24 @@ class MembershipsController < ApplicationController
     end
   end
 
+  def transfer_ownership
+    authorize @team, :update?
+
+    current_owner = @team.team_memberships.active.find_by!(user: current_user)
+    new_owner = @team.team_memberships.find(ownership_params[:membership_id])
+
+    Teams::TransferOwnershipService.call(
+      team: @team,
+      current_owner: current_owner,
+      new_owner: new_owner
+    )
+
+    redirect_to team_members_path(@team), notice: "Owner権限を移譲しました。"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to team_members_path(@team),
+                alert: e.record.errors.full_messages.to_sentence
+  end
+
   def destroy
     authorize @team, :show?
 
@@ -51,5 +69,9 @@ class MembershipsController < ApplicationController
 
   def member_params
     params.expect(member: [:role])
+  end
+
+  def ownership_params
+    params.expect(ownership: [:membership_id])
   end
 end
