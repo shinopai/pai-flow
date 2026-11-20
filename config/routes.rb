@@ -26,6 +26,14 @@ Rails.application.routes.draw do
 
   resources :teams, only: %i[index show edit update] do
     post :select, on: :member
+
+    resources :members,
+              controller: "memberships",
+              only: %i[index update]
+
+    resource :membership,
+             controller: "memberships",
+             only: :destroy
   end
 
   # Render dynamic PWA files from app/views/pwa/
