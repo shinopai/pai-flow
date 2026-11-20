@@ -75,30 +75,48 @@ RSpec.describe Teams::LeaveService do
       expect(membership.role).to eq("owner")
     end
 
-    it "離脱処理の途中で失敗した場合、担当者解除をロールバックする" do
-      membership = create(:team_membership)
+    context "離脱処理の途中で失敗した場合" do
+      let!(:membership) { create(:team_membership) }
 
-      project = create(
-        :project,
-        team: membership.team,
-        created_by: membership.user,
-        assignee_membership: membership,
-        name: "テストプロジェクト",
-        status: "順調"
-      )
+      let!(:project) do
+        create(
+          :project,
+          team: membership.team,
+          created_by: membership.user,
+          assignee_membership: membership,
+          name: "テストプロジェクト",
+          status: "順調"
+        )
+      end
 
-      service = described_class.new(team_membership: membership)
+      let!(:task) do
+        create(:task, project:, assignee_membership: membership)
+      end
 
-      allow(service).to receive(:leave_team!)
-        .and_raise(ActiveRecord::RecordInvalid.new(membership))
+      let!(:subtask) do
+        create(
+          :task,
+          project:,
+          parent_task: task,
+          assignee_membership: membership
+        )
+      end
 
-      expect do
-        service.call
-      end.to raise_error(ActiveRecord::RecordInvalid)
+      let(:service) { described_class.new(team_membership: membership) }
 
-      expect(project.reload.assignee_membership_id).to eq(membership.id)
-      expect(membership.reload.status).to eq("active")
-      expect(membership.left_at).to be_nil
+      it "担当者解除をロールバックする" do
+        allow(service).to receive(:leave_team!)
+          .and_raise(ActiveRecord::RecordInvalid.new(membership))
+
+        expect { service.call }.to raise_error(ActiveRecord::RecordInvalid)
+
+        [project, task, subtask].each do |record|
+          expect(record.reload.assignee_membership_id).to eq(membership.id)
+        end
+
+        expect(membership.reload.status).to eq("active")
+        expect(membership.left_at).to be_nil
+      end
     end
   end
 end
