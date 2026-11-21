@@ -39,7 +39,7 @@ Rails.application.routes.draw do
              controller: "memberships",
              only: :destroy
 
-    resources :invitations, only: [:create]
+    resources :invitations, only: %i[index create destroy]
   end
 
   resources :invitations, only: [:show]

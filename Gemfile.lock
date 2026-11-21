@@ -155,6 +155,7 @@ GEM
     google-protobuf (4.36.2-x86_64-linux-musl)
       bigdecimal
       rake (~> 13.3)
+    htmlbeautifier (1.4.3)
     i18n (1.15.2)
       concurrent-ruby (~> 1.0)
     image_processing (1.14.0)
@@ -450,6 +451,7 @@ DEPENDENCIES
   debug
   devise (~> 5.0)
   factory_bot_rails (~> 6.5)
+  htmlbeautifier
   image_processing (~> 1.2)
   importmap-rails
   jbuilder

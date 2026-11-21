@@ -1,0 +1,30 @@
+<h1>チーム招待一覧</h1>
+<% if @invitations.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>メールアドレス</th>
+        <th>招待ステータス</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @invitations.each do |invitation| %>
+        <tr>
+          <td><%= invitation.email %></td>
+          <td><%= invitation.status %></td>
+          <td>
+            <% if invitation.status == "pending" %>
+              <%= button_to "招待を取り消す",
+                            team_invitation_path(@team, invitation),
+                            method: :delete,
+                            data: { turbo_confirm: "この招待を取り消しますか？" } %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>招待履歴はありません。</p>
+<% end %>

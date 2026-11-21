@@ -105,4 +105,104 @@ RSpec.describe "Invitations", type: :request do
       end
     end
   end
+
+  describe "GET /teams/:team_id/invitations" do
+    context "Ownerの場合" do
+      it "チームの招待一覧を表示する" do
+        create(:invitation, team: team, invited_by: owner, invitee: invitee)
+
+        sign_in(owner)
+
+        get team_invitations_path(team)
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    context "Member・Guestの場合" do
+      %w[member guest].each do |role|
+        it "#{role}は招待一覧を閲覧できず403を返す" do
+          member = create(:user, confirmed_at: Time.current)
+          create(:team_membership, team: team, user: member, role: role)
+
+          sign_in(member)
+
+          get team_invitations_path(team)
+
+          expect(response).to have_http_status(:forbidden)
+        end
+      end
+    end
+  end
+
+  describe "DELETE /teams/:team_id/invitations/:id" do
+    let!(:invitation) do
+      create(:invitation, team: team, invited_by: owner, invitee: invitee)
+    end
+
+    context "Ownerの場合" do
+      it "pendingの招待を取り消す" do
+        sign_in(owner)
+
+        expect do
+          delete team_invitation_path(team, invitation)
+        end.to change { invitation.reload.status }
+          .from("pending").to("cancelled")
+
+        expect(invitation.reload.responded_at).to be_present
+        expect(response).to redirect_to(team_invitations_path(team))
+        expect(flash[:notice]).to eq("招待を取り消しました。")
+      end
+
+      it "pending以外の招待は取り消せない" do
+        invitation.update!(
+          status: "accepted",
+          responded_at: Time.current
+        )
+
+        sign_in(owner)
+
+        expect do
+          delete team_invitation_path(team, invitation)
+        end.not_to(change { invitation.reload.status })
+
+        expect(response).to redirect_to(team_invitations_path(team))
+        expect(flash[:alert]).to be_present
+      end
+
+      it "別チームの招待は操作できない" do
+        another_team = create(:team)
+        another_invitation = create(
+          :invitation,
+          team: another_team,
+          invited_by: owner
+        )
+
+        sign_in(owner)
+
+        expect do
+          delete team_invitation_path(team, another_invitation)
+        end.not_to(change { another_invitation.reload.status })
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context "Member・Guestの場合" do
+      %w[member guest].each do |role|
+        it "#{role}は招待を取り消せず403を返す" do
+          member = create(:user, confirmed_at: Time.current)
+          create(:team_membership, team: team, user: member, role: role)
+
+          sign_in(member)
+
+          expect do
+            delete team_invitation_path(team, invitation)
+          end.not_to(change { invitation.reload.status })
+
+          expect(response).to have_http_status(:forbidden)
+        end
+      end
+    end
+  end
 end
