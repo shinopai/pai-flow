@@ -38,7 +38,11 @@ Rails.application.routes.draw do
     resource :membership,
              controller: "memberships",
              only: :destroy
+
+    resources :invitations, only: [:create]
   end
+
+  resources :invitations, only: [:show]
 
   # Render dynamic PWA files from app/views/pwa/
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest

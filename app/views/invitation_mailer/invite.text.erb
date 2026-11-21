@@ -1,0 +1,5 @@
+<%= @invitation.invited_by.name %>さんから、チーム「<%= @invitation.team.name %>」に招待されました。
+
+以下のURLから招待内容を確認してください。
+
+<%= invitation_url(@invitation) %>
