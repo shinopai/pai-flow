@@ -205,4 +205,103 @@ RSpec.describe "Invitations", type: :request do
       end
     end
   end
+
+  describe "PATCH /invitations/:id/accept" do
+    let!(:invitation) do
+      create(:invitation, team: team, invited_by: owner, invitee: invitee)
+    end
+
+    context "招待対象者の場合" do
+      it "招待を承諾し、Guestとしてチームに所属する" do
+        sign_in(invitee)
+
+        expect do
+          patch accept_invitation_path(invitation)
+        end.to change(TeamMembership, :count).by(1)
+                                             .and change { invitation.reload.status }
+          .from("pending").to("accepted")
+
+        membership = TeamMembership.find_by!(
+          team: team,
+          user: invitee,
+          status: "active"
+        )
+
+        expect(membership.role).to eq("guest")
+        expect(invitation.reload.responded_at).to be_present
+        expect(response).to redirect_to(team_path(team))
+        expect(flash[:notice]).to eq("チームへの招待を承諾しました。")
+      end
+    end
+
+    context "招待対象者以外の場合" do
+      it "招待を承諾できず403を返す" do
+        other_user = create(:user, confirmed_at: Time.current)
+
+        sign_in(other_user)
+
+        expect do
+          patch accept_invitation_path(invitation)
+        end.not_to(change { invitation.reload.status })
+
+        expect(response).to have_http_status(:forbidden)
+        expect(invitation.reload.status).to eq("pending")
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        patch accept_invitation_path(invitation)
+
+        expect(response).to redirect_to(new_user_session_path)
+        expect(invitation.reload.status).to eq("pending")
+      end
+    end
+  end
+
+  describe "PATCH /invitations/:id/decline" do
+    let!(:invitation) do
+      create(:invitation, team: team, invited_by: owner, invitee: invitee)
+    end
+
+    context "招待対象者の場合" do
+      it "招待を拒否し、チームに所属しない" do
+        sign_in(invitee)
+
+        expect do
+          patch decline_invitation_path(invitation)
+        end.to change { invitation.reload.status }
+          .from("pending").to("declined")
+
+        expect(invitation.reload.responded_at).to be_present
+        expect(team.team_memberships.exists?(user: invitee)).to be(false)
+        expect(response).to redirect_to(teams_path)
+        expect(flash[:notice]).to eq("チームへの招待を拒否しました。")
+      end
+    end
+
+    context "招待対象者以外の場合" do
+      it "招待を拒否できず403を返す" do
+        other_user = create(:user, confirmed_at: Time.current)
+
+        sign_in(other_user)
+
+        expect do
+          patch decline_invitation_path(invitation)
+        end.not_to(change { invitation.reload.status })
+
+        expect(response).to have_http_status(:forbidden)
+        expect(invitation.reload.status).to eq("pending")
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        patch decline_invitation_path(invitation)
+
+        expect(response).to redirect_to(new_user_session_path)
+        expect(invitation.reload.status).to eq("pending")
+      end
+    end
+  end
 end

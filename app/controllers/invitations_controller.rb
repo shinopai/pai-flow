@@ -4,6 +4,7 @@ class InvitationsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_team, only: %i[index create destroy]
   before_action :set_invitation, only: [:destroy]
+  before_action :set_response_invitation, only: %i[accept decline]
 
   def index
     authorize @team, :update?
@@ -37,6 +38,35 @@ class InvitationsController < ApplicationController
                 alert: e.record.errors.full_messages.to_sentence
   end
 
+  def accept
+    authorize @invitation, :accept?
+
+    Invitations::AcceptService.call(
+      invitation: @invitation,
+      user: current_user
+    )
+
+    redirect_to team_path(@invitation.team),
+                notice: "チームへの招待を承諾しました。"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to invitation_path(@invitation),
+                alert: e.record.errors.full_messages.to_sentence
+  end
+
+  def decline
+    authorize @invitation, :decline?
+
+    Invitations::DeclineService.call(
+      invitation: @invitation,
+      user: current_user
+    )
+
+    redirect_to teams_path, notice: "チームへの招待を拒否しました。"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to invitation_path(@invitation),
+                alert: e.record.errors.full_messages.to_sentence
+  end
+
   private
 
   def set_team
@@ -45,6 +75,10 @@ class InvitationsController < ApplicationController
 
   def set_invitation
     @invitation = @team.invitations.find(params.expect(:id))
+  end
+
+  def set_response_invitation
+    @invitation = Invitation.find(params.expect(:id))
   end
 
   def invitation_params

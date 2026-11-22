@@ -42,7 +42,12 @@ Rails.application.routes.draw do
     resources :invitations, only: %i[index create destroy]
   end
 
-  resources :invitations, only: [:show]
+  resources :invitations, only: [:show] do
+    member do
+      patch :accept
+      patch :decline
+    end
+  end
 
   # Render dynamic PWA files from app/views/pwa/
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
