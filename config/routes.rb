@@ -40,6 +40,8 @@ Rails.application.routes.draw do
              only: :destroy
 
     resources :invitations, only: %i[index create destroy]
+
+    resources :projects, only: %i[create show]
   end
 
   resources :invitations, only: [:show] do
