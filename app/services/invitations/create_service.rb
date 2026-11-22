@@ -12,14 +12,11 @@ module Invitations
 
     def call
       validate_inviter!
-
       invitation = build_invitation
-
       validate_invitee!(invitation)
       validate_not_member!(invitation)
-
+      validate_not_pending!(invitation)
       save_and_send(invitation)
-
       invitation
     end
 
@@ -52,6 +49,16 @@ module Invitations
       raise ActiveRecord::RecordInvalid, invitation
     end
 
+    def validate_not_pending!(invitation)
+      return unless @team.invitations.exists?(
+        invitee: invitation.invitee,
+        status: "pending"
+      )
+
+      invitation.errors.add(:email, "への保留中の招待がすでに存在します")
+      raise ActiveRecord::RecordInvalid, invitation
+    end
+
     def build_invitation
       @team.invitations.new(
         invitee: User.find_by(email: @email),
@@ -63,7 +70,6 @@ module Invitations
 
     def save_and_send(invitation)
       invitation.save!
-
       InvitationMailer.invite(invitation).deliver_now
     end
   end
