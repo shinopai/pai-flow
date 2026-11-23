@@ -46,6 +46,80 @@ RSpec.describe Projects::UpdateService do
       end
     end
 
+    context "プロジェクトのステータスを変更する場合" do
+      %w[順調 リスクあり 要対応 保留中 完了].each do |status|
+        it "#{status}に変更できる" do
+          updated_project = described_class.call(
+            project: project,
+            attributes: {
+              status: status
+            }
+          )
+
+          expect(updated_project.status).to eq(status)
+        end
+      end
+
+      it "完了から別のステータスに変更できる" do
+        project.update!(status: "完了")
+
+        updated_project = described_class.call(
+          project: project,
+          attributes: {
+            status: "順調"
+          }
+        )
+
+        expect(updated_project.status).to eq("順調")
+      end
+
+      it "プロジェクトのステータスを変更してもタスク・サブタスクのステータスは変わらない" do
+        task = create(
+          :task,
+          project: project,
+          created_by: owner,
+          status: "in_progress"
+        )
+        subtask = create(
+          :task,
+          project: project,
+          parent_task: task,
+          created_by: owner,
+          status: "completed"
+        )
+
+        described_class.call(
+          project: project,
+          attributes: {
+            status: "完了"
+          }
+        )
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(subtask.reload.status).to eq("completed")
+      end
+
+      it "タスク・サブタスクがすべて完了してもプロジェクトのステータスは自動変更されない" do
+        task = create(
+          :task,
+          project: project,
+          created_by: owner,
+          status: "completed"
+        )
+        subtask = create(
+          :task,
+          project: project,
+          parent_task: task,
+          created_by: owner,
+          status: "completed"
+        )
+
+        expect(task.status).to eq("completed")
+        expect(subtask.status).to eq("completed")
+        expect(project.reload.status).to eq("順調")
+      end
+    end
+
     context "担当者を変更する場合" do
       it "同じチームのOwnerを担当者に設定できる" do
         project.update!(assignee_membership: nil)
