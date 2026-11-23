@@ -2,152 +2,153 @@
 
 require "rails_helper"
 
-RSpec.describe "Projects", type: :request do
-  let!(:team) { create(:team) }
-  let!(:owner) { create(:user, confirmed_at: Time.current) }
+RSpec.describe Projects::CreateService do
+  let(:team) { create(:team) }
+  let(:user) { create(:user) }
 
-  before do
-    create(:team_membership, team: team, user: owner, role: "owner")
-  end
+  describe ".call" do
+    context "Ownerの場合" do
+      it "プロジェクトを作成し、作成者を初期担当者に設定する" do
+        membership = create(
+          :team_membership,
+          team: team,
+          user: user,
+          role: "owner"
+        )
 
-  def sign_in(user)
-    post user_session_path,
-         params: {
-           user: {
-             email: user.email,
-             password: "password123"
-           }
-         }
-  end
+        project = described_class.call(
+          team: team,
+          user: user,
+          name: "新規プロジェクト",
+          description: "プロジェクトの説明",
+          due_date: Date.new(2026, 12, 31)
+        )
 
-  describe "POST /teams/:team_id/projects" do
-    context "Owner・Memberの場合" do
-      %w[owner member].each do |role|
-        it "#{role}はプロジェクトを作成でき、作成者が初期担当者になる" do
-          user = if role == "owner"
-                   owner
-                 else
-                   member = create(:user, confirmed_at: Time.current)
-                   create(
-                     :team_membership,
-                     team: team,
-                     user: member,
-                     role: "member"
-                   )
-                   member
-                 end
+        expect(project).to be_persisted
+        expect(project.team).to eq(team)
+        expect(project.created_by).to eq(user)
+        expect(project.assignee_membership).to eq(membership)
+        expect(project.name).to eq("新規プロジェクト")
+        expect(project.description).to eq("プロジェクトの説明")
+        expect(project.due_date).to eq(Date.new(2026, 12, 31))
+        expect(project.status).to eq("順調")
+      end
+    end
 
-          sign_in(user)
+    context "Memberの場合" do
+      it "プロジェクトを作成できる" do
+        membership = create(
+          :team_membership,
+          team: team,
+          user: user,
+          role: "member"
+        )
 
-          expect do
-            post team_projects_path(team),
-                 params: {
-                   project: {
-                     name: "新規プロジェクト",
-                     description: "プロジェクトの説明",
-                     due_date: "2026-12-31"
-                   }
-                 }
-          end.to change(Project, :count).by(1)
+        project = described_class.call(
+          team: team,
+          user: user,
+          name: "新規プロジェクト"
+        )
 
-          project = Project.last
-          membership = TeamMembership.find_by!(
-            team: team,
-            user: user,
-            status: "active"
-          )
-
-          expect(project.team).to eq(team)
-          expect(project.created_by).to eq(user)
-          expect(project.assignee_membership).to eq(membership)
-          expect(project.name).to eq("新規プロジェクト")
-          expect(project.description).to eq("プロジェクトの説明")
-          expect(project.due_date).to eq(Date.new(2026, 12, 31))
-          expect(project.status).to eq("順調")
-
-          expect(response).to redirect_to(team_project_path(team, project))
-          expect(flash[:notice]).to eq("プロジェクトを作成しました。")
-        end
+        expect(project).to be_persisted
+        expect(project.assignee_membership).to eq(membership)
+        expect(project.status).to eq("順調")
       end
     end
 
     context "Guestの場合" do
-      it "プロジェクトを作成できず403を返す" do
-        guest = create(:user, confirmed_at: Time.current)
-        create(:team_membership, team: team, user: guest, role: "guest")
-
-        sign_in(guest)
+      it "プロジェクトを作成できない" do
+        create(
+          :team_membership,
+          team: team,
+          user: user,
+          role: "guest"
+        )
 
         expect do
-          post team_projects_path(team),
-               params: {
-                 project: { name: "新規プロジェクト" }
-               }
-        end.not_to change(Project, :count)
+          described_class.call(
+            team: team,
+            user: user,
+            name: "新規プロジェクト"
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
+      end
+    end
 
-        expect(response).to have_http_status(:forbidden)
+    context "チームを離脱済みの場合" do
+      it "プロジェクトを作成できない" do
+        create(
+          :team_membership,
+          team: team,
+          user: user,
+          role: "member",
+          status: "left",
+          left_at: Time.current
+        )
+
+        expect do
+          described_class.call(
+            team: team,
+            user: user,
+            name: "新規プロジェクト"
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
       end
     end
 
     context "チームに所属していない場合" do
-      it "プロジェクトを作成できず403を返す" do
-        user = create(:user, confirmed_at: Time.current)
-
-        sign_in(user)
-
+      it "プロジェクトを作成できない" do
         expect do
-          post team_projects_path(team),
-               params: {
-                 project: { name: "新規プロジェクト" }
-               }
-        end.not_to change(Project, :count)
-
-        expect(response).to have_http_status(:forbidden)
+          described_class.call(
+            team: team,
+            user: user,
+            name: "新規プロジェクト"
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
       end
     end
 
-    context "入力内容が不正な場合" do
+    context "プロジェクト名が不正な場合" do
       it "プロジェクトを作成せず、エラーを返す" do
-        sign_in(owner)
+        create(
+          :team_membership,
+          team: team,
+          user: user,
+          role: "owner"
+        )
 
         expect do
-          post team_projects_path(team),
-               params: {
-                 project: { name: "" }
-               }
-        end.not_to change(Project, :count)
+          described_class.call(
+            team: team,
+            user: user,
+            name: ""
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
 
-        expect(response).to redirect_to(team_path(team))
-        expect(flash[:alert]).to be_present
-      end
-
-      it "プロジェクト名が未送信の場合は作成せず、エラーを返す" do
-        sign_in(owner)
-
-        expect do
-          post team_projects_path(team),
-               params: {
-                 project: {
-                   description: "プロジェクトの説明"
-                 }
-               }
-        end.not_to change(Project, :count)
-
-        expect(response).to redirect_to(team_path(team))
-        expect(flash[:alert]).to be_present
+        expect(Project.count).to eq(0)
       end
     end
 
-    context "ログインしていない場合" do
-      it "ログイン画面へリダイレクトする" do
-        expect do
-          post team_projects_path(team),
-               params: {
-                 project: { name: "新規プロジェクト" }
-               }
-        end.not_to change(Project, :count)
+    context "チームとユーザーの所属関係が異なる場合" do
+      it "別チームの所属情報ではプロジェクトを作成できない" do
+        another_team = create(:team)
 
-        expect(response).to redirect_to(new_user_session_path)
+        create(
+          :team_membership,
+          team: another_team,
+          user: user,
+          role: "owner"
+        )
+
+        expect do
+          described_class.call(
+            team: team,
+            user: user,
+            name: "新規プロジェクト"
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
+
+        expect(Project.count).to eq(0)
       end
     end
   end

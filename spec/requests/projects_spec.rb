@@ -5,9 +5,26 @@ require "rails_helper"
 RSpec.describe "Projects", type: :request do
   let!(:team) { create(:team) }
   let!(:owner) { create(:user, confirmed_at: Time.current) }
+  let!(:owner_membership) do
+    create(
+      :team_membership,
+      team: team,
+      user: owner,
+      role: "owner"
+    )
+  end
 
-  before do
-    create(:team_membership, team: team, user: owner, role: "owner")
+  let(:project) do
+    create(
+      :project,
+      team: team,
+      created_by: owner,
+      assignee_membership: owner_membership,
+      name: "変更前のプロジェクト",
+      description: "変更前の説明",
+      due_date: Date.new(2026, 12, 31),
+      status: "順調"
+    )
   end
 
   def sign_in(user)
@@ -50,22 +67,24 @@ RSpec.describe "Projects", type: :request do
                  }
           end.to change(Project, :count).by(1)
 
-          project = Project.last
+          created_project = Project.last
           membership = TeamMembership.find_by!(
             team: team,
             user: user,
             status: "active"
           )
 
-          expect(project.team).to eq(team)
-          expect(project.created_by).to eq(user)
-          expect(project.assignee_membership).to eq(membership)
-          expect(project.name).to eq("新規プロジェクト")
-          expect(project.description).to eq("プロジェクトの説明")
-          expect(project.due_date).to eq(Date.new(2026, 12, 31))
-          expect(project.status).to eq("順調")
+          expect(created_project.team).to eq(team)
+          expect(created_project.created_by).to eq(user)
+          expect(created_project.assignee_membership).to eq(membership)
+          expect(created_project.name).to eq("新規プロジェクト")
+          expect(created_project.description).to eq("プロジェクトの説明")
+          expect(created_project.due_date).to eq(Date.new(2026, 12, 31))
+          expect(created_project.status).to eq("順調")
 
-          expect(response).to redirect_to(team_project_path(team, project))
+          expect(response).to redirect_to(
+            team_project_path(team, created_project)
+          )
           expect(flash[:notice]).to eq("プロジェクトを作成しました。")
         end
       end
@@ -148,6 +167,221 @@ RSpec.describe "Projects", type: :request do
         end.not_to change(Project, :count)
 
         expect(response).to redirect_to(new_user_session_path)
+      end
+    end
+  end
+
+  describe "PATCH /teams/:team_id/projects/:id" do
+    context "Ownerの場合" do
+      it "プロジェクト情報を更新できる" do
+        sign_in(owner)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "変更後のプロジェクト",
+                  description: "変更後の説明",
+                  due_date: "2027-01-31",
+                  status: "リスクあり"
+                }
+              }
+
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("プロジェクトを更新しました。")
+
+        project.reload
+
+        expect(project.name).to eq("変更後のプロジェクト")
+        expect(project.description).to eq("変更後の説明")
+        expect(project.due_date).to eq(Date.new(2027, 1, 31))
+        expect(project.status).to eq("リスクあり")
+      end
+
+      it "同じチームのMemberに担当者を変更できる" do
+        member = create(:user)
+        membership = create(
+          :team_membership,
+          team: team,
+          user: member,
+          role: "member"
+        )
+
+        sign_in(owner)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  assignee_membership_id: membership.id
+                }
+              }
+
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(project.reload.assignee_membership).to eq(membership)
+      end
+    end
+
+    context "Memberの場合" do
+      it "プロジェクト情報を更新できる" do
+        member = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: member,
+          role: "member"
+        )
+
+        sign_in(member)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "Memberによる更新"
+                }
+              }
+
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(project.reload.name).to eq("Memberによる更新")
+      end
+    end
+
+    context "Guestの場合" do
+      it "プロジェクトを更新できず403を返す" do
+        guest = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: guest,
+          role: "guest"
+        )
+
+        sign_in(guest)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前"
+                }
+              }
+
+        expect(response).to have_http_status(:forbidden)
+        expect(project.reload.name).to eq("変更前のプロジェクト")
+      end
+    end
+
+    context "チームに所属していない場合" do
+      it "プロジェクトを更新できず403を返す" do
+        user = create(:user, confirmed_at: Time.current)
+
+        sign_in(user)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前"
+                }
+              }
+
+        expect(response).to have_http_status(:forbidden)
+        expect(project.reload.name).to eq("変更前のプロジェクト")
+      end
+    end
+
+    context "別チームのプロジェクトを指定した場合" do
+      it "プロジェクトを取得できず404を返す" do
+        another_team = create(:team)
+        another_project = create(
+          :project,
+          team: another_team,
+          created_by: owner
+        )
+
+        sign_in(owner)
+
+        patch team_project_path(team, another_project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前"
+                }
+              }
+
+        expect(response).to have_http_status(:not_found)
+        expect(another_project.reload.name).to eq("テストプロジェクト")
+      end
+    end
+
+    context "担当者の指定が不正な場合" do
+      it "Guestを指定すると更新全体を拒否する" do
+        guest = create(:user)
+        membership = create(
+          :team_membership,
+          team: team,
+          user: guest,
+          role: "guest"
+        )
+
+        sign_in(owner)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前",
+                  assignee_membership_id: membership.id
+                }
+              }
+
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:alert]).to be_present
+        expect(project.reload.name).to eq("変更前のプロジェクト")
+        expect(project.assignee_membership).to eq(owner_membership)
+      end
+    end
+
+    context "入力内容が不正な場合" do
+      it "プロジェクト名が空の場合は更新せずエラーを返す" do
+        sign_in(owner)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: ""
+                }
+              }
+
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:alert]).to be_present
+        expect(project.reload.name).to eq("変更前のプロジェクト")
+      end
+    end
+
+    context "アーカイブ済みの場合" do
+      it "プロジェクトを更新できず403を返す" do
+        project.update!(archived_at: Time.current)
+
+        sign_in(owner)
+
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前"
+                }
+              }
+
+        expect(response).to have_http_status(:forbidden)
+        expect(project.reload.name).to eq("変更前のプロジェクト")
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        patch team_project_path(team, project),
+              params: {
+                project: {
+                  name: "更新されてはいけない名前"
+                }
+              }
+
+        expect(response).to redirect_to(new_user_session_path)
+        expect(project.reload.name).to eq("変更前のプロジェクト")
       end
     end
   end
