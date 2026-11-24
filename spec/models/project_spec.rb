@@ -68,6 +68,151 @@ RSpec.describe Project, type: :model do
     end
   end
 
+  describe "進捗率の算出" do
+    let(:user) { create(:user) }
+    let(:team) { create(:team) }
+    let(:project) { create(:project, team:, created_by: user) }
+
+    def create_progress_task(project:, user:, status:, position:, parent_task: nil)
+      create(
+        :task,
+        project:,
+        created_by: user,
+        parent_task:,
+        title: "テストタスク#{position}",
+        priority: "medium",
+        status:,
+        position:
+      )
+    end
+
+    it "タスクが0件の場合は0%を返すこと" do
+      expect(project.progress_rate).to eq(0)
+    end
+
+    it "未完了タスクのみの場合は0%を返すこと" do
+      create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 0
+      )
+
+      create_progress_task(
+        project:,
+        user:,
+        status: "in_progress",
+        position: 1
+      )
+
+      expect(project.progress_rate).to eq(0)
+    end
+
+    it "すべてのタスクが完了している場合は100%を返すこと" do
+      create_progress_task(
+        project:,
+        user:,
+        status: "completed",
+        position: 0
+      )
+
+      create_progress_task(
+        project:,
+        user:,
+        status: "completed",
+        position: 1
+      )
+
+      expect(project.progress_rate).to eq(100)
+    end
+
+    it "完了タスクの割合を四捨五入して返すこと" do
+      create_progress_task(
+        project:,
+        user:,
+        status: "completed",
+        position: 0
+      )
+
+      create_progress_task(
+        project:,
+        user:,
+        status: "completed",
+        position: 1
+      )
+
+      create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 2
+      )
+
+      expect(project.progress_rate).to eq(67)
+    end
+
+    it "サブタスクを進捗率の計算対象から除外すること" do
+      parent_task = create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 0
+      )
+
+      create_progress_task(
+        project:,
+        user:,
+        status: "completed",
+        position: 1,
+        parent_task:
+      )
+
+      expect(project.progress_rate).to eq(0)
+    end
+
+    it "タスクのステータス変更が進捗率に反映されること" do
+      task = create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 0
+      )
+
+      expect(project.progress_rate).to eq(0)
+
+      task.update!(status: "completed")
+
+      expect(project.progress_rate).to eq(100)
+
+      task.update!(status: "in_progress")
+
+      expect(project.progress_rate).to eq(0)
+    end
+
+    it "サブタスクのステータス変更が進捗率に影響しないこと" do
+      parent_task = create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 0
+      )
+
+      subtask = create_progress_task(
+        project:,
+        user:,
+        status: "not_started",
+        position: 1,
+        parent_task:
+      )
+
+      expect(project.progress_rate).to eq(0)
+
+      subtask.update!(status: "completed")
+
+      expect(project.progress_rate).to eq(0)
+    end
+  end
+
   describe "validations" do
     it "FactoryBotで有効なProjectを生成できること" do
       project = build(:project)

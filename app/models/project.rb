@@ -16,6 +16,17 @@ class Project < ApplicationRecord
             presence: true,
             inclusion: { in: %w[順調 リスクあり 要対応 保留中 完了] }
 
+  def progress_rate
+    task_counts = tasks.where(parent_task_id: nil).group(:status).count
+    total_tasks = task_counts.values.sum
+
+    return 0 if total_tasks.zero?
+
+    completed_tasks = task_counts.fetch("completed", 0)
+
+    (completed_tasks * 100.0 / total_tasks).round
+  end
+
   private
 
   def due_date_must_be_valid
