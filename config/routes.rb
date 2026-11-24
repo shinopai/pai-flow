@@ -41,7 +41,12 @@ Rails.application.routes.draw do
 
     resources :invitations, only: %i[index create destroy]
 
-    resources :projects, only: %i[create show update]
+    resources :projects, only: %i[create show update] do
+      member do
+        patch :archive
+        patch :restore
+      end
+    end
   end
 
   resources :invitations, only: [:show] do

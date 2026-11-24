@@ -212,4 +212,186 @@ RSpec.describe ProjectPolicy do
       end
     end
   end
+
+  describe "プロジェクトアーカイブ権限" do
+    let(:team) { create(:team) }
+    let(:project) { create(:project, team: team) }
+    let(:user) { create(:user) }
+
+    context "Ownerの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "owner"
+        )
+      end
+
+      it "プロジェクトアーカイブを許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.archive?).to be true
+      end
+    end
+
+    context "Memberの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "member"
+        )
+      end
+
+      it "プロジェクトアーカイブを許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.archive?).to be true
+      end
+    end
+
+    context "Guestの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "guest"
+        )
+      end
+
+      it "プロジェクトアーカイブを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.archive?).to be false
+      end
+    end
+
+    context "所属がない場合" do
+      it "プロジェクトアーカイブを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.archive?).to be false
+      end
+    end
+
+    context "所属がleftの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          status: "left",
+          left_at: Time.current
+        )
+      end
+
+      it "プロジェクトアーカイブを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.archive?).to be false
+      end
+    end
+
+    context "未ログインの場合" do
+      it "プロジェクトアーカイブを拒否する" do
+        policy = described_class.new(nil, project)
+
+        expect(policy.archive?).to be false
+      end
+    end
+  end
+
+  describe "プロジェクト復元権限" do
+    let(:team) { create(:team) }
+    let(:project) { create(:project, team: team, archived_at: Time.current) }
+    let(:user) { create(:user) }
+
+    context "Ownerの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "owner"
+        )
+      end
+
+      it "プロジェクト復元を許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.restore?).to be true
+      end
+    end
+
+    context "Memberの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "member"
+        )
+      end
+
+      it "プロジェクト復元を許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.restore?).to be true
+      end
+    end
+
+    context "Guestの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "guest"
+        )
+      end
+
+      it "プロジェクト復元を拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.restore?).to be false
+      end
+    end
+
+    context "所属がない場合" do
+      it "プロジェクト復元を拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.restore?).to be false
+      end
+    end
+
+    context "所属がleftの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          status: "left",
+          left_at: Time.current
+        )
+      end
+
+      it "プロジェクト復元を拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.restore?).to be false
+      end
+    end
+
+    context "未ログインの場合" do
+      it "プロジェクト復元を拒否する" do
+        policy = described_class.new(nil, project)
+
+        expect(policy.restore?).to be false
+      end
+    end
+  end
 end

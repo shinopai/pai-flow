@@ -8,4 +8,12 @@ class ProjectPolicy < ApplicationPolicy
   def update?
     owner_or_member? && record.archived_at.nil?
   end
+
+  def archive?
+    owner_or_member?
+  end
+
+  def restore?
+    owner_or_member?
+  end
 end

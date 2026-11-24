@@ -17,6 +17,7 @@ class ProjectsController < ApplicationController
 
   def update
     find_project
+    authorize @project, :update?
     update_project
 
     redirect_to team_project_path(@team, @project),
@@ -24,6 +25,24 @@ class ProjectsController < ApplicationController
   rescue ActiveRecord::RecordInvalid => e
     redirect_to team_project_path(@team, @project),
                 alert: e.record.errors.full_messages.to_sentence
+  end
+
+  def archive
+    find_project
+    authorize @project, :archive?
+    Projects::ArchiveService.call(project: @project)
+
+    redirect_to team_path(@team),
+                notice: "プロジェクトをアーカイブしました。"
+  end
+
+  def restore
+    find_project
+    authorize @project, :restore?
+    Projects::RestoreService.call(project: @project)
+
+    redirect_to team_project_path(@team, @project),
+                notice: "プロジェクトを復元しました。"
   end
 
   private
@@ -47,7 +66,6 @@ class ProjectsController < ApplicationController
 
   def find_project
     @project = @team.projects.find(params.expect(:id))
-    authorize @project, :update?
   end
 
   def update_project
