@@ -41,7 +41,7 @@ Rails.application.routes.draw do
 
     resources :invitations, only: %i[index create destroy]
 
-    resources :projects, only: %i[create show update] do
+    resources :projects, only: %i[create show update destroy] do
       member do
         patch :archive
         patch :restore

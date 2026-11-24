@@ -16,4 +16,8 @@ class ProjectPolicy < ApplicationPolicy
   def restore?
     owner_or_member?
   end
+
+  def destroy?
+    owner_or_member?
+  end
 end

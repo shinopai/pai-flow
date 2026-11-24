@@ -45,6 +45,15 @@ class ProjectsController < ApplicationController
                 notice: "プロジェクトを復元しました。"
   end
 
+  def destroy
+    find_project
+    authorize @project, :destroy?
+    Projects::DestroyService.call(project: @project)
+
+    redirect_to team_path(@team),
+                notice: "プロジェクトを削除しました。"
+  end
+
   private
 
   def set_team
