@@ -231,4 +231,208 @@ RSpec.describe "Tasks", type: :request do
       end
     end
   end
+
+  describe "PATCH /teams/:team_id/projects/:project_id/tasks/:id" do
+    let!(:task) do
+      create(
+        :task,
+        project: project,
+        created_by: owner,
+        title: "更新前のタスク"
+      )
+    end
+
+    def submit_task_update(user, attributes, target_task = task)
+      sign_in(user)
+
+      patch team_project_task_path(team, project, target_task),
+            params: { task: attributes }
+    end
+
+    context "Ownerの場合" do
+      it "タスクを更新できる" do
+        submit_task_update(
+          owner,
+          {
+            title: "更新後のタスク",
+            description: "更新後の説明",
+            due_date: "2027-01-31",
+            priority: "high",
+            status: "in_progress"
+          }
+        )
+
+        expect(task.reload).to have_attributes(
+          title: "更新後のタスク",
+          description: "更新後の説明",
+          due_date: Date.new(2027, 1, 31),
+          priority: "high",
+          status: "in_progress"
+        )
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("タスクを更新しました。")
+      end
+    end
+
+    context "Memberの場合" do
+      it "タスクを更新できる" do
+        member = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: member,
+          role: "member"
+        )
+
+        submit_task_update(
+          member,
+          { title: "Memberによる更新" }
+        )
+
+        expect(task.reload.title).to eq("Memberによる更新")
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("タスクを更新しました。")
+      end
+    end
+
+    context "Guestの場合" do
+      it "タスクを更新できず403を返す" do
+        guest = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: guest,
+          role: "guest"
+        )
+        original_title = task.title
+
+        submit_task_update(
+          guest,
+          { title: "Guestによる更新" }
+        )
+
+        expect(response).to have_http_status(:forbidden)
+        expect(task.reload.title).to eq(original_title)
+      end
+    end
+
+    context "チームに所属していない場合" do
+      it "タスクを更新できず403を返す" do
+        user = create(:user, confirmed_at: Time.current)
+        original_title = task.title
+
+        submit_task_update(
+          user,
+          { title: "未所属ユーザーによる更新" }
+        )
+
+        expect(response).to have_http_status(:forbidden)
+        expect(task.reload.title).to eq(original_title)
+      end
+    end
+
+    context "入力内容が不正な場合" do
+      it "タイトルが空の場合は更新せずエラーを返す" do
+        original_title = task.title
+
+        submit_task_update(
+          owner,
+          { title: "" }
+        )
+
+        expect(response).to redirect_to(
+          team_project_path(team, project)
+        )
+        expect(flash[:alert]).to be_present
+        expect(task.reload.title).to eq(original_title)
+      end
+    end
+
+    context "アーカイブ済みプロジェクトの場合" do
+      it "タスクを更新できず403を返す" do
+        project.update!(archived_at: Time.current)
+        original_title = task.title
+
+        submit_task_update(
+          owner,
+          { title: "アーカイブ後の更新" }
+        )
+
+        expect(response).to have_http_status(:forbidden)
+        expect(task.reload.title).to eq(original_title)
+      end
+    end
+
+    context "別プロジェクトのタスクを指定した場合" do
+      it "タスクを更新できず404を返す" do
+        another_project = create(
+          :project,
+          team: team,
+          created_by: owner,
+          assignee_membership: owner_membership
+        )
+        another_task = create(
+          :task,
+          project: another_project,
+          created_by: owner,
+          title: "別プロジェクトのタスク"
+        )
+
+        original_title = another_task.title
+
+        sign_in(owner)
+
+        patch team_project_task_path(team, project, another_task),
+              params: {
+                task: {
+                  title: "不正な更新"
+                }
+              }
+
+        expect(response).to have_http_status(:not_found)
+        expect(another_task.reload.title).to eq(original_title)
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        patch team_project_task_path(team, project, task),
+              params: {
+                task: {
+                  title: "未ログインでの更新"
+                }
+              }
+
+        expect(response).to redirect_to(new_user_session_path)
+        expect(task.reload.title).to eq("更新前のタスク")
+      end
+    end
+
+    context "サブタスクの場合" do
+      it "サブタスクを更新できる" do
+        parent_task = create(
+          :task,
+          project: project,
+          created_by: owner
+        )
+        subtask = create(
+          :task,
+          project: project,
+          created_by: owner,
+          parent_task: parent_task,
+          title: "更新前のサブタスク"
+        )
+
+        submit_task_update(
+          owner,
+          { title: "更新後のサブタスク" },
+          subtask
+        )
+
+        expect(subtask.reload.title).to eq("更新後のサブタスク")
+        expect(subtask.parent_task).to eq(parent_task)
+        expect(response).to redirect_to(team_project_path(team, project))
+      end
+    end
+  end
 end
