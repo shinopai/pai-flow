@@ -37,6 +37,91 @@ RSpec.describe "Projects", type: :request do
          }
   end
 
+  describe "GET /teams/:team_id/projects" do
+    context "Owner・Member・Guestの場合" do
+      %w[owner member guest].each do |role|
+        it "#{role}はプロジェクト一覧を取得できる" do
+          user = if role == "owner"
+                   owner
+                 else
+                   member = create(:user, confirmed_at: Time.current)
+                   create(
+                     :team_membership,
+                     team: team,
+                     user: member,
+                     role: role
+                   )
+                   member
+                 end
+
+          sign_in(user)
+
+          get team_projects_path(team)
+
+          expect(response).to have_http_status(:ok)
+        end
+      end
+    end
+
+    context "チームに所属していない場合" do
+      it "プロジェクト一覧を取得できず403を返す" do
+        user = create(:user, confirmed_at: Time.current)
+
+        sign_in(user)
+
+        get team_projects_path(team)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        get team_projects_path(team)
+
+        expect(response).to redirect_to(new_user_session_path)
+      end
+    end
+
+    context "検索条件を指定した場合" do
+      it "検索条件をListServiceに渡す" do
+        sign_in(owner)
+
+        filters = {
+          keyword: "プロジェクト",
+          status: "順調",
+          assignee_id: "unassigned",
+          due_date_from: "2026-12-01",
+          due_date_to: "2026-12-31",
+          sort: "due_date"
+        }
+
+        expect(Projects::ListService).to receive(:call).with(
+          team: team,
+          filters: filters
+        ).and_call_original
+
+        get team_projects_path(team), params: filters
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    context "期限の指定が不正な場合" do
+      it "開始日が終了日より後なら422を返す" do
+        sign_in(owner)
+
+        get team_projects_path(team),
+            params: {
+              due_date_from: "2027-01-01",
+              due_date_to: "2026-12-31"
+            }
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+  end
+
   describe "POST /teams/:team_id/projects" do
     context "Owner・Memberの場合" do
       %w[owner member].each do |role|

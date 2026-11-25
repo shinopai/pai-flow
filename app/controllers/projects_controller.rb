@@ -4,6 +4,32 @@ class ProjectsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_team
 
+  def index
+    authorize @team, :show?
+
+    @search_conditions = project_search_params
+    projects = Projects::ListService.call(
+      team: @team,
+      filters: @search_conditions
+    )
+
+    @total_count = projects.count
+    @current_page = normalized_page
+    @per_page = Projects::ListService::PER_PAGE
+    @total_pages = (@total_count.to_f / @per_page).ceil
+
+    @projects = projects
+                .limit(@per_page)
+                .offset((@current_page - 1) * @per_page)
+
+    head :ok
+  rescue Projects::ListService::InvalidDateRange => e
+    @search_error = e.message
+    @projects = @team.projects.none
+
+    head :unprocessable_content
+  end
+
   def create
     prepare_project_for_creation
     create_project
@@ -100,5 +126,23 @@ class ProjectsController < ApplicationController
         assignee_membership_id
       ]
     ).to_h.symbolize_keys
+  end
+
+  def project_search_params
+    params.permit(
+      :keyword,
+      :status,
+      :assignee_id,
+      :due_date_from,
+      :due_date_to,
+      :sort
+    ).to_h.symbolize_keys
+  end
+
+  def normalized_page
+    page = params[:page].to_s
+    return 1 unless page.match?(/\A\d+\z/)
+
+    [page.to_i, 1].max
   end
 end
