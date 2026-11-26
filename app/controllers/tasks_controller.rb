@@ -3,6 +3,7 @@ class TasksController < ApplicationController
   before_action :set_team
   before_action :set_project
   before_action :set_task, only: :update
+  before_action :set_parent_task, only: :create_subtask
 
   rescue_from ActiveRecord::RecordInvalid, with: :handle_record_invalid
 
@@ -18,6 +19,21 @@ class TasksController < ApplicationController
 
     redirect_to team_project_path(@team, @project),
                 notice: "タスクを作成しました。"
+  end
+
+  def create_subtask
+    subtask = @project.tasks.build(parent_task: @parent_task)
+    authorize subtask, :create?
+
+    Tasks::CreateService.call(
+      project: @project,
+      user: current_user,
+      parent_task: @parent_task,
+      attributes: task_params
+    )
+
+    redirect_to team_project_path(@team, @project),
+                notice: "サブタスクを作成しました。"
   end
 
   def update
@@ -49,6 +65,12 @@ class TasksController < ApplicationController
 
   def set_task
     @task = @project.tasks.find(params.expect(:id))
+  end
+
+  def set_parent_task
+    @parent_task = @project.tasks
+                           .where(parent_task_id: nil)
+                           .find(params.expect(:id))
   end
 
   def task_params

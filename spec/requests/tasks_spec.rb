@@ -53,6 +53,13 @@ RSpec.describe "Tasks", type: :request do
          params: { task: attributes }
   end
 
+  def submit_subtask(user, parent_task, attributes)
+    sign_in(user)
+
+    post subtasks_team_project_task_path(team, project, parent_task),
+         params: { task: attributes }
+  end
+
   def expect_created_task(user)
     expect(Task.last).to have_attributes(
       expected_task_attributes.merge(created_by: user)
@@ -223,6 +230,247 @@ RSpec.describe "Tasks", type: :request do
                params: {
                  task: {
                    title: "新規タスク"
+                 }
+               }
+        end.not_to change(Task, :count)
+
+        expect(response).to redirect_to(new_user_session_path)
+      end
+    end
+  end
+
+  describe "POST /teams/:team_id/projects/:project_id/tasks/:id/subtasks" do
+    let!(:parent_task) do
+      create(
+        :task,
+        project: project,
+        created_by: owner,
+        title: "親タスク"
+      )
+    end
+
+    context "Ownerの場合" do
+      it "サブタスクを作成できる" do
+        expect do
+          submit_subtask(
+            owner,
+            parent_task,
+            {
+              title: "新規サブタスク",
+              description: "サブタスクの説明",
+              due_date: "2026-12-31",
+              priority: "high",
+              status: "in_progress"
+            }
+          )
+        end.to change(Task, :count).by(1)
+
+        subtask = Task.last
+
+        expect(subtask).to have_attributes(
+          project: project,
+          created_by: owner,
+          parent_task: parent_task,
+          title: "新規サブタスク",
+          description: "サブタスクの説明",
+          due_date: Date.new(2026, 12, 31),
+          priority: "high",
+          status: "in_progress",
+          position: 1
+        )
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("サブタスクを作成しました。")
+      end
+    end
+
+    context "Memberの場合" do
+      it "サブタスクを作成できる" do
+        member = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: member,
+          role: "member"
+        )
+
+        expect do
+          submit_subtask(
+            member,
+            parent_task,
+            { title: "Memberによるサブタスク" }
+          )
+        end.to change(Task, :count).by(1)
+
+        subtask = Task.last
+
+        expect(subtask.parent_task).to eq(parent_task)
+        expect(subtask.created_by).to eq(member)
+        expect(subtask.title).to eq("Memberによるサブタスク")
+        expect(subtask.priority).to eq("medium")
+        expect(subtask.status).to eq("not_started")
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("サブタスクを作成しました。")
+      end
+    end
+
+    context "Guestの場合" do
+      it "サブタスクを作成できず403を返す" do
+        guest = create(:user, confirmed_at: Time.current)
+        create(
+          :team_membership,
+          team: team,
+          user: guest,
+          role: "guest"
+        )
+
+        expect do
+          submit_subtask(
+            guest,
+            parent_task,
+            { title: "Guestによるサブタスク" }
+          )
+        end.not_to change(Task, :count)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context "チームに所属していない場合" do
+      it "サブタスクを作成できず403を返す" do
+        user = create(:user, confirmed_at: Time.current)
+
+        expect do
+          submit_subtask(
+            user,
+            parent_task,
+            { title: "未所属ユーザーによるサブタスク" }
+          )
+        end.not_to change(Task, :count)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context "入力内容が不正な場合" do
+      it "タイトルが空の場合は作成せずエラーを返す" do
+        expect do
+          submit_subtask(
+            owner,
+            parent_task,
+            { title: "" }
+          )
+        end.not_to change(Task, :count)
+
+        expect(response).to redirect_to(
+          team_project_path(team, project)
+        )
+        expect(flash[:alert]).to be_present
+      end
+
+      it "タイトルが未送信の場合は作成せずエラーを返す" do
+        expect do
+          submit_subtask(
+            owner,
+            parent_task,
+            { description: "サブタスクの説明" }
+          )
+        end.not_to change(Task, :count)
+
+        expect(response).to redirect_to(
+          team_project_path(team, project)
+        )
+        expect(flash[:alert]).to be_present
+      end
+    end
+
+    context "アーカイブ済みプロジェクトの場合" do
+      it "サブタスクを作成できず403を返す" do
+        project.update!(archived_at: Time.current)
+
+        expect do
+          submit_subtask(
+            owner,
+            parent_task,
+            { title: "新規サブタスク" }
+          )
+        end.not_to change(Task, :count)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context "別プロジェクトのタスクを親に指定した場合" do
+      it "サブタスクを作成できず404を返す" do
+        another_project = create(
+          :project,
+          team: team,
+          created_by: owner,
+          assignee_membership: owner_membership
+        )
+        another_parent_task = create(
+          :task,
+          project: another_project,
+          created_by: owner
+        )
+
+        sign_in(owner)
+
+        expect do
+          post subtasks_team_project_task_path(
+            team,
+            project,
+            another_parent_task
+          ),
+               params: {
+                 task: {
+                   title: "不正なサブタスク"
+                 }
+               }
+        end.not_to change(Task, :count)
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context "サブタスクを親に指定した場合" do
+      it "さらに下の階層のサブタスクを作成できず404を返す" do
+        existing_subtask = create(
+          :task,
+          project: project,
+          created_by: owner,
+          parent_task: parent_task
+        )
+
+        sign_in(owner)
+
+        expect do
+          post subtasks_team_project_task_path(
+            team,
+            project,
+            existing_subtask
+          ),
+               params: {
+                 task: {
+                   title: "階層外サブタスク"
+                 }
+               }
+        end.not_to change(Task, :count)
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context "ログインしていない場合" do
+      it "ログイン画面へリダイレクトする" do
+        expect do
+          post subtasks_team_project_task_path(
+            team,
+            project,
+            parent_task
+          ),
+               params: {
+                 task: {
+                   title: "未ログインでのサブタスク"
                  }
                }
         end.not_to change(Task, :count)

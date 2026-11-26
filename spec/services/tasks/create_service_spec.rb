@@ -191,6 +191,128 @@ RSpec.describe Tasks::CreateService do
       end
     end
 
+    context "親タスクを指定した場合" do
+      let(:parent_task) do
+        create(:task, project: project, position: 1)
+      end
+
+      it "親タスクに紐づくサブタスクを作成する" do
+        subtask = described_class.call(
+          project: project,
+          user: user,
+          parent_task: parent_task,
+          attributes: { title: "新規サブタスク" }
+        )
+
+        expect(subtask).to be_persisted
+        expect(subtask.project).to eq(project)
+        expect(subtask.parent_task).to eq(parent_task)
+        expect(subtask.created_by).to eq(user)
+        expect(subtask.title).to eq("新規サブタスク")
+      end
+
+      it "優先度とステータスの初期値を設定する" do
+        subtask = described_class.call(
+          project: project,
+          user: user,
+          parent_task: parent_task,
+          attributes: { title: "新規サブタスク" }
+        )
+
+        expect(subtask.priority).to eq("medium")
+        expect(subtask.status).to eq("not_started")
+      end
+
+      it "同じ親タスク内でpositionを順番に設定する" do
+        first_subtask = create(
+          :task,
+          project: project,
+          parent_task: parent_task,
+          position: 1
+        )
+
+        second_subtask = described_class.call(
+          project: project,
+          user: user,
+          parent_task: parent_task,
+          attributes: { title: "2番目のサブタスク" }
+        )
+
+        third_subtask = described_class.call(
+          project: project,
+          user: user,
+          parent_task: parent_task,
+          attributes: { title: "3番目のサブタスク" }
+        )
+
+        expect(first_subtask.position).to eq(1)
+        expect(second_subtask.position).to eq(2)
+        expect(third_subtask.position).to eq(3)
+      end
+
+      it "親タスクごとにpositionを独立して採番する" do
+        another_parent_task = create(
+          :task,
+          project: project,
+          position: 2
+        )
+
+        create(
+          :task,
+          project: project,
+          parent_task: another_parent_task,
+          position: 5
+        )
+
+        subtask = described_class.call(
+          project: project,
+          user: user,
+          parent_task: parent_task,
+          attributes: { title: "新規サブタスク" }
+        )
+
+        expect(subtask.position).to eq(1)
+      end
+
+      it "別プロジェクトのタスクを親に指定した場合は作成しない" do
+        another_project = create(:project, team: team)
+        another_parent_task = create(
+          :task,
+          project: another_project
+        )
+
+        expect do
+          described_class.call(
+            project: project,
+            user: user,
+            parent_task: another_parent_task,
+            attributes: { title: "新規サブタスク" }
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
+
+        expect(project.tasks.count).to eq(0)
+      end
+
+      it "サブタスクを親に指定した場合は作成しない" do
+        existing_subtask = create(
+          :task,
+          project: project,
+          parent_task: parent_task
+        )
+
+        expect do
+          described_class.call(
+            project: project,
+            user: user,
+            parent_task: existing_subtask,
+            attributes: { title: "階層外サブタスク" }
+          )
+        end.to raise_error(ActiveRecord::RecordInvalid)
+
+        expect(project.tasks.count).to eq(2)
+      end
+    end
+
     context "アーカイブ済みプロジェクトの場合" do
       before do
         project.update!(archived_at: Time.current)

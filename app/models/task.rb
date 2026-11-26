@@ -22,6 +22,7 @@ class Task < ApplicationRecord
   validates :description, length: { maximum: 500 }
 
   validate :due_date_must_be_valid
+  validate :parent_task_must_be_valid
 
   validates :priority,
             presence: true,
@@ -42,5 +43,20 @@ class Task < ApplicationRecord
     return unless due_date.nil?
 
     errors.add(:due_date, "は正しい日付を入力してください")
+  end
+
+  def parent_task_must_be_valid
+    return if parent_task.nil?
+
+    unless parent_task.persisted?
+      errors.add(:parent_task, "は保存済みのタスクを指定してください")
+      return
+    end
+
+    errors.add(:parent_task, "は同じプロジェクトのタスクを指定してください") unless parent_task.project_id == project_id
+
+    return unless parent_task.parent_task_id.present?
+
+    errors.add(:parent_task, "は通常タスクを指定してください")
   end
 end

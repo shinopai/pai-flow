@@ -141,6 +141,48 @@ RSpec.describe Task, type: :model do
 
       expect(task).to be_valid
     end
+
+    it "未保存のTaskをParent Taskに指定した場合は無効であること" do
+      parent_task = build(:task)
+      task = build(
+        :task,
+        project: parent_task.project,
+        parent_task:
+      )
+
+      expect(task).not_to be_valid
+      expect(task.errors[:parent_task]).to be_present
+    end
+
+    it "別のProjectに所属するTaskをParent Taskに指定した場合は無効であること" do
+      parent_task = create(:task)
+      other_project = create(:project)
+      task = build(
+        :task,
+        project: other_project,
+        parent_task:
+      )
+
+      expect(task).not_to be_valid
+      expect(task.errors[:parent_task]).to be_present
+    end
+
+    it "SubtaskをParent Taskに指定した場合は無効であること" do
+      parent_task = create(:task)
+      subtask = create(
+        :task,
+        project: parent_task.project,
+        parent_task:
+      )
+      task = build(
+        :task,
+        project: parent_task.project,
+        parent_task: subtask
+      )
+
+      expect(task).not_to be_valid
+      expect(task.errors[:parent_task]).to be_present
+    end
   end
 
   describe "associations" do

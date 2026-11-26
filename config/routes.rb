@@ -42,7 +42,12 @@ Rails.application.routes.draw do
     resources :invitations, only: %i[index create destroy]
 
     resources :projects, only: %i[index create show update destroy] do
-      resources :tasks, only: %i[create update]
+      resources :tasks, only: %i[create update] do
+        post "subtasks",
+             to: "tasks#create_subtask",
+             on: :member,
+             as: :subtasks
+      end
 
       member do
         patch :archive

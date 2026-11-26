@@ -14,13 +14,19 @@ module Tasks
       status: "not_started"
     }.freeze
 
-    def self.call(project:, user:, attributes:)
-      new(project:, user:, attributes:).call
+    def self.call(project:, user:, attributes:, parent_task: nil)
+      new(
+        project:,
+        user:,
+        attributes:,
+        parent_task:
+      ).call
     end
 
-    def initialize(project:, user:, attributes:)
+    def initialize(project:, user:, attributes:, parent_task: nil)
       @project = project
       @user = user
+      @parent_task = parent_task
       @attributes = attributes.to_h.symbolize_keys
                               .slice(*ALLOWED_ATTRIBUTES)
                               .reverse_merge(DEFAULT_ATTRIBUTES)
@@ -32,6 +38,7 @@ module Tasks
       @project.with_lock do
         task = build_task
         ensure_project_active!(task)
+        ensure_parent_task_valid!(task)
         assign_assignee!(task)
         task.save!
       end
@@ -44,7 +51,7 @@ module Tasks
     def build_task
       @project.tasks.build(
         @attributes.merge(
-          parent_task_id: nil,
+          parent_task: @parent_task,
           created_by: @user,
           position: next_position
         )
@@ -58,9 +65,20 @@ module Tasks
       raise ActiveRecord::RecordInvalid, task
     end
 
+    def ensure_parent_task_valid!(task)
+      return if @parent_task.nil?
+
+      return if @parent_task.persisted? &&
+                @parent_task.project_id == @project.id &&
+                @parent_task.parent_task_id.nil?
+
+      task.errors.add(:parent_task, "は同じプロジェクトの通常タスクを指定してください")
+      raise ActiveRecord::RecordInvalid, task
+    end
+
     def next_position
       @project.tasks
-              .where(parent_task_id: nil)
+              .where(parent_task_id: @parent_task&.id)
               .maximum(:position)
               .to_i + 1
     end
