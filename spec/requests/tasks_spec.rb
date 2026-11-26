@@ -656,21 +656,61 @@ RSpec.describe "Tasks", type: :request do
       end
     end
 
+    context "担当者を設定・解除する場合" do
+      it "通常タスクに担当者を設定できる" do
+        membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+
+        submit_task_update(
+          owner,
+          { assignee_membership_id: membership.id }
+        )
+
+        expect(task.reload.assignee_membership).to eq(membership)
+        expect(response).to redirect_to(team_project_path(team, project))
+      end
+
+      it "通常タスクの担当者を解除できる" do
+        membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+        task.update!(assignee_membership: membership)
+
+        submit_task_update(
+          owner,
+          { assignee_membership_id: "" }
+        )
+
+        expect(task.reload.assignee_membership).to be_nil
+        expect(response).to redirect_to(team_project_path(team, project))
+      end
+    end
+
     context "サブタスクの場合" do
-      it "サブタスクを更新できる" do
-        parent_task = create(
+      let!(:parent_task) do
+        create(
           :task,
           project: project,
           created_by: owner
         )
-        subtask = create(
+      end
+
+      let!(:subtask) do
+        create(
           :task,
           project: project,
           created_by: owner,
           parent_task: parent_task,
           title: "更新前のサブタスク"
         )
+      end
 
+      it "サブタスクを更新できる" do
         submit_task_update(
           owner,
           { title: "更新後のサブタスク" },
@@ -679,6 +719,41 @@ RSpec.describe "Tasks", type: :request do
 
         expect(subtask.reload.title).to eq("更新後のサブタスク")
         expect(subtask.parent_task).to eq(parent_task)
+        expect(response).to redirect_to(team_project_path(team, project))
+      end
+
+      it "サブタスクに担当者を設定できる" do
+        membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+
+        submit_task_update(
+          owner,
+          { assignee_membership_id: membership.id },
+          subtask
+        )
+
+        expect(subtask.reload.assignee_membership).to eq(membership)
+        expect(response).to redirect_to(team_project_path(team, project))
+      end
+
+      it "サブタスクの担当者を解除できる" do
+        membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+        subtask.update!(assignee_membership: membership)
+
+        submit_task_update(
+          owner,
+          { assignee_membership_id: "" },
+          subtask
+        )
+
+        expect(subtask.reload.assignee_membership).to be_nil
         expect(response).to redirect_to(team_project_path(team, project))
       end
     end

@@ -63,6 +63,29 @@ RSpec.describe Tasks::UpdateService do
 
         expect(task.reload.assignee_membership).to eq(membership)
       end
+
+      it "設定済みの担当者を別のMemberに変更する" do
+        original_membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+        new_membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+        task.update!(assignee_membership: original_membership)
+
+        described_class.call(
+          task: task,
+          attributes: {
+            assignee_membership_id: new_membership.id
+          }
+        )
+
+        expect(task.reload.assignee_membership).to eq(new_membership)
+      end
     end
 
     context "担当者を空欄にした場合" do
@@ -264,6 +287,29 @@ RSpec.describe Tasks::UpdateService do
 
         expect(subtask.reload.title).to eq("更新後のサブタスク")
         expect(subtask.parent_task).to eq(parent_task)
+      end
+
+      it "サブタスクに担当者を設定する" do
+        parent_task = create(:task, project: project)
+        subtask = create(
+          :task,
+          project: project,
+          parent_task: parent_task
+        )
+        membership = create(
+          :team_membership,
+          team: team,
+          role: "member"
+        )
+
+        described_class.call(
+          task: subtask,
+          attributes: {
+            assignee_membership_id: membership.id
+          }
+        )
+
+        expect(subtask.reload.assignee_membership).to eq(membership)
       end
     end
 
