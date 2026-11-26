@@ -219,4 +219,110 @@ RSpec.describe TaskPolicy do
       end
     end
   end
+
+  describe "タスク削除権限" do
+    context "Ownerの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "owner"
+        )
+      end
+
+      it "タスク削除を許可する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be true
+      end
+    end
+
+    context "Memberの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "member"
+        )
+      end
+
+      it "タスク削除を許可する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be true
+      end
+    end
+
+    context "Guestの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "guest"
+        )
+      end
+
+      it "タスク削除を拒否する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be false
+      end
+    end
+
+    context "所属がない場合" do
+      it "タスク削除を拒否する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be false
+      end
+    end
+
+    context "所属がleftの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          status: "left",
+          left_at: Time.current
+        )
+      end
+
+      it "タスク削除を拒否する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be false
+      end
+    end
+
+    context "未ログインの場合" do
+      it "タスク削除を拒否する" do
+        policy = described_class.new(nil, task)
+
+        expect(policy.destroy?).to be false
+      end
+    end
+
+    context "アーカイブ済みプロジェクトの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          role: "owner"
+        )
+
+        project.update!(archived_at: Time.current)
+      end
+
+      it "タスク削除を拒否する" do
+        policy = described_class.new(user, task)
+
+        expect(policy.destroy?).to be false
+      end
+    end
+  end
 end

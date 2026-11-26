@@ -2,7 +2,7 @@ class TasksController < ApplicationController
   before_action :authenticate_user!
   before_action :set_team
   before_action :set_project
-  before_action :set_task, only: :update
+  before_action :set_task, only: %i[update destroy]
   before_action :set_parent_task, only: :create_subtask
 
   rescue_from ActiveRecord::RecordInvalid, with: :handle_record_invalid
@@ -46,6 +46,23 @@ class TasksController < ApplicationController
 
     redirect_to team_project_path(@team, @project),
                 notice: "タスクを更新しました。"
+  end
+
+  def destroy
+    authorize @task, :destroy?
+
+    is_subtask = @task.parent_task_id.present?
+
+    Tasks::DestroyService.call(task: @task)
+
+    notice = if is_subtask
+               "サブタスクを削除しました。"
+             else
+               "タスクを削除しました。"
+             end
+
+    redirect_to team_project_path(@team, @project),
+                notice: notice
   end
 
   private
