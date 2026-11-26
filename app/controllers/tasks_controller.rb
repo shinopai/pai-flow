@@ -4,22 +4,12 @@ class TasksController < ApplicationController
   before_action :set_project
   before_action :set_task, only: :update
 
+  rescue_from ActiveRecord::RecordInvalid, with: :handle_record_invalid
+
   def create
-    @task = @project.tasks.build
-    authorize @task, :create?
+    task = @project.tasks.build
+    authorize task, :create?
 
-    create_task
-  end
-
-  def update
-    authorize @task, :update?
-
-    update_task
-  end
-
-  private
-
-  def create_task
     Tasks::CreateService.call(
       project: @project,
       user: current_user,
@@ -28,12 +18,11 @@ class TasksController < ApplicationController
 
     redirect_to team_project_path(@team, @project),
                 notice: "タスクを作成しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to team_project_path(@team, @project),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
-  def update_task
+  def update
+    authorize @task, :update?
+
     Tasks::UpdateService.call(
       task: @task,
       attributes: task_params
@@ -41,9 +30,13 @@ class TasksController < ApplicationController
 
     redirect_to team_project_path(@team, @project),
                 notice: "タスクを更新しました。"
-  rescue ActiveRecord::RecordInvalid => e
+  end
+
+  private
+
+  def handle_record_invalid(exception)
     redirect_to team_project_path(@team, @project),
-                alert: e.record.errors.full_messages.to_sentence
+                alert: exception.record.errors.full_messages.to_sentence
   end
 
   def set_team

@@ -3,6 +3,9 @@
 class ProjectsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_team
+  before_action :set_project, only: %i[update archive restore destroy]
+
+  rescue_from ActiveRecord::RecordInvalid, with: :handle_record_invalid
 
   def index
     authorize @team, :show?
@@ -31,31 +34,34 @@ class ProjectsController < ApplicationController
   end
 
   def create
-    prepare_project_for_creation
-    create_project
+    project = @team.projects.build
+    authorize project, :create?
+
+    @project = Projects::CreateService.call(
+      team: @team,
+      user: current_user,
+      **project_params
+    )
 
     redirect_to team_project_path(@team, @project),
                 notice: "プロジェクトを作成しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to team_path(@team),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
   def update
-    find_project
     authorize @project, :update?
-    update_project
+
+    Projects::UpdateService.call(
+      project: @project,
+      attributes: project_update_params
+    )
 
     redirect_to team_project_path(@team, @project),
                 notice: "プロジェクトを更新しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to team_project_path(@team, @project),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
   def archive
-    find_project
     authorize @project, :archive?
+
     Projects::ArchiveService.call(project: @project)
 
     redirect_to team_path(@team),
@@ -63,8 +69,8 @@ class ProjectsController < ApplicationController
   end
 
   def restore
-    find_project
     authorize @project, :restore?
+
     Projects::RestoreService.call(project: @project)
 
     redirect_to team_project_path(@team, @project),
@@ -72,8 +78,8 @@ class ProjectsController < ApplicationController
   end
 
   def destroy
-    find_project
     authorize @project, :destroy?
+
     Projects::DestroyService.call(project: @project)
 
     redirect_to team_path(@team),
@@ -82,32 +88,23 @@ class ProjectsController < ApplicationController
 
   private
 
+  def handle_record_invalid(exception)
+    redirect_path = if action_name == "create"
+                      team_path(@team)
+                    else
+                      team_project_path(@team, @project)
+                    end
+
+    redirect_to redirect_path,
+                alert: exception.record.errors.full_messages.to_sentence
+  end
+
   def set_team
     @team = Team.find(params.expect(:team_id))
   end
 
-  def prepare_project_for_creation
-    @project = @team.projects.build
-    authorize @project, :create?
-  end
-
-  def create_project
-    @project = Projects::CreateService.call(
-      team: @team,
-      user: current_user,
-      **project_params
-    )
-  end
-
-  def find_project
+  def set_project
     @project = @team.projects.find(params.expect(:id))
-  end
-
-  def update_project
-    Projects::UpdateService.call(
-      project: @project,
-      attributes: project_update_params
-    )
   end
 
   def project_params

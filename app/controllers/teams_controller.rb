@@ -2,6 +2,7 @@
 
 class TeamsController < ApplicationController
   before_action :authenticate_user!
+  before_action :set_team, only: %i[select show edit update]
 
   def index
     authorize Team, :index?
@@ -12,7 +13,6 @@ class TeamsController < ApplicationController
   end
 
   def select
-    @team = Team.find(params.expect(:id))
     authorize @team, :select?
 
     current_user.update!(last_selected_team: @team)
@@ -21,21 +21,18 @@ class TeamsController < ApplicationController
   end
 
   def show
-    @team = Team.find(params.expect(:id))
     authorize @team, :show?
 
     head :ok
   end
 
   def edit
-    @team = Team.find(params.expect(:id))
     authorize @team, :edit?
 
     head :ok
   end
 
   def update
-    @team = Team.find(params.expect(:id))
     authorize @team, :update?
 
     if @team.update(team_params)
@@ -46,6 +43,10 @@ class TeamsController < ApplicationController
   end
 
   private
+
+  def set_team
+    @team = Team.find(params.expect(:id))
+  end
 
   def team_params
     params.expect(team: [:name])

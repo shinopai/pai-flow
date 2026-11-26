@@ -3,8 +3,10 @@
 class InvitationsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_team, only: %i[index create destroy]
-  before_action :set_invitation, only: [:destroy]
+  before_action :set_invitation, only: %i[destroy]
   before_action :set_response_invitation, only: %i[accept decline]
+
+  rescue_from ActiveRecord::RecordInvalid, with: :handle_record_invalid
 
   def index
     authorize @team, :update?
@@ -22,9 +24,6 @@ class InvitationsController < ApplicationController
     )
 
     redirect_to team_path(@team), notice: "招待メールを送信しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to team_path(@team),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
   def destroy
@@ -32,10 +31,8 @@ class InvitationsController < ApplicationController
 
     Invitations::CancelService.call(invitation: @invitation)
 
-    redirect_to team_invitations_path(@team), notice: "招待を取り消しました。"
-  rescue ActiveRecord::RecordInvalid => e
     redirect_to team_invitations_path(@team),
-                alert: e.record.errors.full_messages.to_sentence
+                notice: "招待を取り消しました。"
   end
 
   def accept
@@ -48,9 +45,6 @@ class InvitationsController < ApplicationController
 
     redirect_to team_path(@invitation.team),
                 notice: "チームへの招待を承諾しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to invitation_path(@invitation),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
   def decline
@@ -62,12 +56,25 @@ class InvitationsController < ApplicationController
     )
 
     redirect_to teams_path, notice: "チームへの招待を拒否しました。"
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to invitation_path(@invitation),
-                alert: e.record.errors.full_messages.to_sentence
   end
 
   private
+
+  def handle_record_invalid(exception)
+    redirect_to record_invalid_redirect_path,
+                alert: exception.record.errors.full_messages.to_sentence
+  end
+
+  def record_invalid_redirect_path
+    case action_name
+    when "create"
+      team_path(@team)
+    when "destroy"
+      team_invitations_path(@team)
+    when "accept", "decline"
+      invitation_path(@invitation)
+    end
+  end
 
   def set_team
     @team = Team.find(params.expect(:team_id))
