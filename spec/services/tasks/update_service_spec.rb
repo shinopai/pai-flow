@@ -27,6 +27,19 @@ RSpec.describe Tasks::UpdateService do
         expect(task.priority).to eq("high")
         expect(task.status).to eq("in_progress")
       end
+
+      it "完了済みタスクを未完了のステータスに戻せる" do
+        task.update!(status: "completed")
+
+        described_class.call(
+          task: task,
+          attributes: {
+            status: "in_progress"
+          }
+        )
+
+        expect(task.reload.status).to eq("in_progress")
+      end
     end
 
     context "担当者を指定した場合" do
@@ -310,6 +323,43 @@ RSpec.describe Tasks::UpdateService do
         )
 
         expect(subtask.reload.assignee_membership).to eq(membership)
+      end
+
+      it "サブタスクの期限を変更する" do
+        parent_task = create(:task, project: project)
+        subtask = create(
+          :task,
+          project: project,
+          parent_task: parent_task
+        )
+        due_date = Date.new(2027, 2, 28)
+
+        described_class.call(
+          task: subtask,
+          attributes: {
+            due_date: due_date
+          }
+        )
+
+        expect(subtask.reload.due_date).to eq(due_date)
+      end
+
+      it "サブタスクのステータスを変更する" do
+        parent_task = create(:task, project: project)
+        subtask = create(
+          :task,
+          project: project,
+          parent_task: parent_task
+        )
+
+        described_class.call(
+          task: subtask,
+          attributes: {
+            status: "in_progress"
+          }
+        )
+
+        expect(subtask.reload.status).to eq("in_progress")
       end
     end
 

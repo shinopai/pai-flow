@@ -185,6 +185,44 @@ RSpec.describe Task, type: :model do
     end
   end
 
+  describe "#overdue?" do
+    it "期限が昨日で未着手の場合はtrueを返すこと" do
+      task = build(:task, due_date: Date.current.yesterday, status: "not_started")
+
+      expect(task.overdue?).to be true
+    end
+
+    it "期限が昨日で進行中の場合はtrueを返すこと" do
+      task = build(:task, due_date: Date.current.yesterday, status: "in_progress")
+
+      expect(task.overdue?).to be true
+    end
+
+    it "期限が昨日でも完了済みの場合はfalseを返すこと" do
+      task = build(:task, due_date: Date.current.yesterday, status: "completed")
+
+      expect(task.overdue?).to be false
+    end
+
+    it "期限が今日の場合はfalseを返すこと" do
+      task = build(:task, due_date: Date.current)
+
+      expect(task.overdue?).to be false
+    end
+
+    it "期限が明日の場合はfalseを返すこと" do
+      task = build(:task, due_date: Date.current.tomorrow)
+
+      expect(task.overdue?).to be false
+    end
+
+    it "期限が未設定の場合はfalseを返すこと" do
+      task = build(:task, due_date: nil)
+
+      expect(task.overdue?).to be false
+    end
+  end
+
   describe "associations" do
     it "Projectに所属すること" do
       project = create(:project)

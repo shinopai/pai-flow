@@ -35,6 +35,12 @@ class Task < ApplicationRecord
   validates :position,
             numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
+  def overdue?
+    due_date.present? &&
+      due_date < Date.current &&
+      status != "completed"
+  end
+
   private
 
   def due_date_must_be_valid

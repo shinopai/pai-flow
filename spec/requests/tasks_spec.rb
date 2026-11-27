@@ -520,6 +520,19 @@ RSpec.describe "Tasks", type: :request do
         expect(response).to redirect_to(team_project_path(team, project))
         expect(flash[:notice]).to eq("タスクを更新しました。")
       end
+
+      it "完了済みタスクを進行中に戻せる" do
+        task.update!(status: "completed")
+
+        submit_task_update(
+          owner,
+          { status: "in_progress" }
+        )
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("タスクを更新しました。")
+      end
     end
 
     context "Memberの場合" do
@@ -755,6 +768,32 @@ RSpec.describe "Tasks", type: :request do
 
         expect(subtask.reload.assignee_membership).to be_nil
         expect(response).to redirect_to(team_project_path(team, project))
+      end
+
+      it "サブタスクの期限を変更できる" do
+        due_date = Date.new(2027, 2, 28)
+
+        submit_task_update(
+          owner,
+          { due_date: "2027-02-28" },
+          subtask
+        )
+
+        expect(subtask.reload.due_date).to eq(due_date)
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("タスクを更新しました。")
+      end
+
+      it "サブタスクのステータスを変更できる" do
+        submit_task_update(
+          owner,
+          { status: "in_progress" },
+          subtask
+        )
+
+        expect(subtask.reload.status).to eq("in_progress")
+        expect(response).to redirect_to(team_project_path(team, project))
+        expect(flash[:notice]).to eq("タスクを更新しました。")
       end
     end
   end
