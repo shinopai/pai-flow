@@ -65,11 +65,29 @@ class TasksController < ApplicationController
                 notice: notice
   end
 
+  def reorder
+    authorize @project, :reorder?
+
+    Tasks::ReorderService.call(
+      project: @project,
+      task_ids: params[:task_ids],
+      parent_task_id: params[:parent_task_id]
+    )
+
+    head :no_content
+  end
+
   private
 
   def handle_record_invalid(exception)
-    redirect_to team_project_path(@team, @project),
-                alert: exception.record.errors.full_messages.to_sentence
+    if action_name == "reorder"
+      render json: {
+        errors: exception.record.errors.full_messages
+      }, status: :unprocessable_content
+    else
+      redirect_to team_project_path(@team, @project),
+                  alert: exception.record.errors.full_messages.to_sentence
+    end
   end
 
   def set_team

@@ -42,6 +42,10 @@ Rails.application.routes.draw do
     resources :invitations, only: %i[index create destroy]
 
     resources :projects, only: %i[index create show update destroy] do
+      patch "tasks/reorder",
+            to: "tasks#reorder",
+            as: :reorder_tasks
+
       resources :tasks, only: %i[create update destroy] do
         post "subtasks",
              to: "tasks#create_subtask",

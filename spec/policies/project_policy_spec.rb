@@ -504,4 +504,93 @@ RSpec.describe ProjectPolicy do
       end
     end
   end
+
+  describe "タスク並び替え権限" do
+    let(:team) { create(:team) }
+    let(:project) { create(:project, team: team) }
+    let(:user) { create(:user) }
+
+    context "Ownerの場合" do
+      before do
+        create(:team_membership, user: user, team: team, role: "owner")
+      end
+
+      it "タスク並び替えを許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be true
+      end
+    end
+
+    context "Memberの場合" do
+      before do
+        create(:team_membership, user: user, team: team, role: "member")
+      end
+
+      it "タスク並び替えを許可する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be true
+      end
+    end
+
+    context "Guestの場合" do
+      before do
+        create(:team_membership, user: user, team: team, role: "guest")
+      end
+
+      it "タスク並び替えを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be false
+      end
+    end
+
+    context "所属がない場合" do
+      it "タスク並び替えを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be false
+      end
+    end
+
+    context "所属がleftの場合" do
+      before do
+        create(
+          :team_membership,
+          user: user,
+          team: team,
+          status: "left",
+          left_at: Time.current
+        )
+      end
+
+      it "タスク並び替えを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be false
+      end
+    end
+
+    context "未ログインの場合" do
+      it "タスク並び替えを拒否する" do
+        policy = described_class.new(nil, project)
+
+        expect(policy.reorder?).to be false
+      end
+    end
+
+    context "アーカイブ済みの場合" do
+      before do
+        create(:team_membership, user: user, team: team, role: "owner")
+        project.update!(archived_at: Time.current)
+      end
+
+      it "タスク並び替えを拒否する" do
+        policy = described_class.new(user, project)
+
+        expect(policy.reorder?).to be false
+      end
+    end
+  end
 end

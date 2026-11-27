@@ -20,4 +20,8 @@ class ProjectPolicy < ApplicationPolicy
   def destroy?
     owner_or_member?
   end
+
+  def reorder?
+    owner_or_member? && record.archived_at.nil?
+  end
 end
