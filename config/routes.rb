@@ -51,6 +51,8 @@ Rails.application.routes.draw do
              to: "tasks#create_subtask",
              on: :member,
              as: :subtasks
+
+        resources :comments, only: :create
       end
 
       member do
