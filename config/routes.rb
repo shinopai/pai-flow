@@ -52,7 +52,7 @@ Rails.application.routes.draw do
              on: :member,
              as: :subtasks
 
-        resources :comments, only: :create
+        resources :comments, only: %i[create update destroy]
       end
 
       member do
